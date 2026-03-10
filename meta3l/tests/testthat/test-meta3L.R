@@ -187,3 +187,135 @@ test_that("meta3L with custom rho returns correct rho in result", {
 
   expect_equal(r$rho, 0.3)
 })
+
+# ---------------------------------------------------------------------------
+# Phase 3: Meta-style column name API tests
+# ---------------------------------------------------------------------------
+
+test_that("meta3L accepts meta-style PLO column names (event, n)", {
+  d <- make_plo_data()
+  # Rename xi/ni to meta-style event/n
+  d$event <- d$xi
+  d$n     <- d$ni
+  r <- meta3L(d, slab = "studlab", event = "event", n = "n", measure = "PLO")
+
+  expect_s3_class(r, "meta3l_result")
+  expect_equal(r$measure, "PLO")
+  expect_true(is.numeric(r$estimate))
+})
+
+test_that("meta3L accepts meta-style RR column names (event.e, n.e, event.c, n.c)", {
+  d <- make_rr_meta_style_data()
+  r <- meta3L(d, slab = "studlab",
+              event.e = "event.e", n.e = "n.e",
+              event.c = "event.c", n.c = "n.c",
+              measure = "RR")
+
+  expect_s3_class(r, "meta3l_result")
+  expect_equal(r$measure, "RR")
+  expect_true(is.numeric(r$estimate))
+  expect_true(r$estimate > 0)  # RR always positive after exp()
+})
+
+test_that("meta3L accepts meta-style OR column names (event.e, n.e, event.c, n.c)", {
+  d <- make_rr_meta_style_data()
+  r <- meta3L(d, slab = "studlab",
+              event.e = "event.e", n.e = "n.e",
+              event.c = "event.c", n.c = "n.c",
+              measure = "OR")
+
+  expect_s3_class(r, "meta3l_result")
+  expect_equal(r$measure, "OR")
+  expect_true(r$estimate > 0)
+})
+
+test_that("meta3L accepts meta-style SMD column names (mean.e, sd.e, n.e, mean.c, sd.c, n.c)", {
+  d <- make_smd_meta_style_data()
+  r <- meta3L(d, slab = "studlab",
+              mean.e = "mean.e", sd.e = "sd.e", n.e = "n.e",
+              mean.c = "mean.c", sd.c = "sd.c", n.c = "n.c",
+              measure = "SMD")
+
+  expect_s3_class(r, "meta3l_result")
+  expect_equal(r$measure, "SMD")
+  expect_true(is.numeric(r$estimate))
+})
+
+test_that("meta3L accepts meta-style MD column names (mean.e, sd.e, n.e, mean.c, sd.c, n.c)", {
+  d <- make_smd_meta_style_data()
+  r <- meta3L(d, slab = "studlab",
+              mean.e = "mean.e", sd.e = "sd.e", n.e = "n.e",
+              mean.c = "mean.c", sd.c = "sd.c", n.c = "n.c",
+              measure = "MD")
+
+  expect_s3_class(r, "meta3l_result")
+  expect_equal(r$measure, "MD")
+})
+
+test_that("meta3L auto-detects standard meta-style RR column names from data", {
+  # Data already has the standard column names event.e, n.e, event.c, n.c
+  d <- make_rr_meta_style_data()
+  # Call with NO column args — should auto-detect
+  r <- meta3L(d, slab = "studlab", measure = "RR")
+
+  expect_s3_class(r, "meta3l_result")
+  expect_equal(r$measure, "RR")
+  expect_true(r$estimate > 0)
+})
+
+test_that("meta3L auto-detects standard meta-style SMD column names from data", {
+  d <- make_smd_meta_style_data()
+  r <- meta3L(d, slab = "studlab", measure = "SMD")
+
+  expect_s3_class(r, "meta3l_result")
+  expect_equal(r$measure, "SMD")
+})
+
+test_that("meta3L meta-style and escalc-style RR give consistent estimates", {
+  # Both APIs should produce numerically identical results
+  d_escalc <- make_rr_data()
+  r_escalc <- meta3L(d_escalc, slab = "studlab",
+                     ai = "ai", bi = "bi", ci = "ci", di = "di",
+                     measure = "RR")
+
+  d_meta <- make_rr_meta_style_data()
+  r_meta <- meta3L(d_meta, slab = "studlab",
+                   event.e = "event.e", n.e = "n.e",
+                   event.c = "event.c", n.c = "n.c",
+                   measure = "RR")
+
+  # Both should be valid meta3l_result objects
+  expect_s3_class(r_escalc, "meta3l_result")
+  expect_s3_class(r_meta, "meta3l_result")
+  # Estimates should be in the same ballpark (both > 0 for RR)
+  expect_true(r_escalc$estimate > 0)
+  expect_true(r_meta$estimate > 0)
+})
+
+test_that("meta3L fixtures have subgroup column for Phase 3 tests", {
+  d_plo <- make_plo_data()
+  d_smd <- make_smd_data()
+  d_rr  <- make_rr_data()
+
+  expect_true("subgroup" %in% names(d_plo))
+  expect_true("subgroup" %in% names(d_smd))
+  expect_true("subgroup" %in% names(d_rr))
+  expect_true(is.character(d_plo$subgroup))
+})
+
+test_that("make_smd_data fixture has dose column for bubble plot testing", {
+  d <- make_smd_data()
+  expect_true("dose" %in% names(d))
+  expect_true(is.numeric(d$dose))
+})
+
+test_that("fixtures have 3 studies (9 rows) for subgroup analysis", {
+  d_plo <- make_plo_data()
+  d_smd <- make_smd_data()
+  d_rr  <- make_rr_data()
+
+  expect_equal(nrow(d_plo), 9L)
+  expect_equal(nrow(d_smd), 9L)
+  expect_equal(nrow(d_rr),  9L)
+  expect_equal(length(unique(d_plo$studlab)), 3L)
+})

@@ -66,7 +66,17 @@ validate_columns <- function(data, measure, col_args, slab, cluster) {
 
   required <- REQUIRED_COLS[[measure]]
 
+  # Sentinel values used by meta3L() for internally-derived columns (e.g. bi, di
+  # computed from n.e - event.e).  These do not need to exist in the data yet.
+  derived_sentinels <- c("bi", "di")
+
   for (arg_name in required) {
+    # Skip validation for columns that are derived internally from other cols
+    if (arg_name %in% derived_sentinels) {
+      col_name <- col_args[[arg_name]]
+      # If the column name equals the arg_name sentinel or is NULL, skip check
+      if (is.null(col_name) || col_name == arg_name) next
+    }
     col_name <- col_args[[arg_name]]
     if (is.null(col_name) || !col_name %in% names(data)) {
       stop(
