@@ -1,3 +1,16 @@
+# Internal mapping from meta-style argument names to escalc canonical names.
+# Used for auto-detection and meta-style API translation.  Not exported.
+META_COL_MAP <- list(
+  PLO = list(xi = "event", ni = "n"),
+  PAS = list(xi = "event", ni = "n"),
+  RR  = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
+  OR  = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
+  SMD = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
+             m2i = "mean.c", sd2i = "sd.c", n2i = "n.c"),
+  MD  = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
+             m2i = "mean.c", sd2i = "sd.c", n2i = "n.c")
+)
+
 #' Fit a three-level random-effects meta-analysis model
 #'
 #' Wraps \code{metafor::escalc}, \code{metafor::vcalc}, \code{metafor::rma.mv},
@@ -162,20 +175,6 @@
 #' )
 #' r3 <- meta3L(d2, slab = "studlab", xi = "xi", ni = "ni", measure = "PLO")
 #' }
-
-# Internal mapping from meta-style argument names to escalc canonical names
-# Used for auto-detection and meta-style API translation
-META_COL_MAP <- list(
-  PLO = list(xi = "event", ni = "n"),
-  PAS = list(xi = "event", ni = "n"),
-  RR  = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
-  OR  = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
-  SMD = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
-             m2i = "mean.c", sd2i = "sd.c", n2i = "n.c"),
-  MD  = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
-             m2i = "mean.c", sd2i = "sd.c", n2i = "n.c")
-)
-
 meta3L <- function(data,
                    slab,
                    measure,
@@ -222,24 +221,22 @@ meta3L <- function(data,
   col_args <- list()
 
   # (a) Meta-style args: translate meta-style parameter names to escalc names
-  meta_map <- META_COL_MAP[[measure]]
 
   # PLO/PAS: event -> xi, n -> ni
   if (!is.null(event)) col_args[["xi"]] <- event
   if (!is.null(n))     col_args[["ni"]] <- n
 
-  # RR/OR: event.e -> ai (n.e will compute bi = n.e - event.e later),
-  #         event.c -> ci (n.c will compute di = n.c - event.c later)
+  # RR/OR: event.e -> ai, event.c -> ci
   # We store meta-style n.e / n.c for the bi/di computation step
-  meta_n_e_col   <- n.e
-  meta_n_c_col   <- n.c
-  meta_event_e   <- event.e
-  meta_event_c   <- event.c
+  meta_n_e_col  <- n.e
+  meta_n_c_col  <- n.c
+  meta_event_e  <- event.e
+  meta_event_c  <- event.c
 
-  if (!is.null(event.e)) col_args[["ai"]]  <- event.e
-  if (!is.null(event.c)) col_args[["ci"]]  <- event.c
-  # n.e / n.c are used only to derive bi / di — do NOT add to col_args as n1i/n2i for RR/OR
-  # because escalc for RR/OR requires ai, bi, ci, di (not n1i/n2i)
+  if (!is.null(event.e)) col_args[["ai"]] <- event.e
+  if (!is.null(event.c)) col_args[["ci"]] <- event.c
+  # n.e / n.c for RR/OR are only used to derive bi / di — they map to n1i/n2i
+  # only for SMD/MD (see below)
 
   # SMD/MD: mean.e -> m1i, sd.e -> sd1i, n.e -> n1i, mean.c -> m2i, etc.
   if (measure %in% c("SMD", "MD")) {
@@ -277,23 +274,29 @@ meta3L <- function(data,
       # Translate meta-style names to escalc canonical names
       for (escalc_name in names(meta_map_m)) {
         meta_col <- meta_map_m[[escalc_name]]
-        # For RR/OR n.e and n.c: store separately for bi/di computation
-        if (measure %in% c("RR", "OR") && escalc_name %in% c("n1i", "n2i")) {
-          if (escalc_name == "n1i") meta_n_e_col <- meta_col
-          if (escalc_name == "n2i") meta_n_c_col <- meta_col
-          # Do NOT add n1i/n2i to col_args for RR/OR — escalc needs bi/di
+        # For RR/OR n1i and n2i: store separately for bi/di computation
+        if (measure %in% c("RR", "OR") && escalc_name == "n1i") {
+          meta_n_e_col <- meta_col
+          # Do NOT add n1i to col_args for RR/OR
+        } else if (measure %in% c("RR", "OR") && escalc_name == "n2i") {
+          meta_n_c_col <- meta_col
+          # Do NOT add n2i to col_args for RR/OR
         } else {
           col_args[[escalc_name]] <- meta_col
         }
         # Track event.e and event.c column names for bi/di derivation
-        if (measure %in% c("RR", "OR") && escalc_name == "ai") meta_event_e <- meta_col
-        if (measure %in% c("RR", "OR") && escalc_name == "ci") meta_event_c <- meta_col
+        if (measure %in% c("RR", "OR") && escalc_name == "ai") {
+          meta_event_e <- meta_col
+        }
+        if (measure %in% c("RR", "OR") && escalc_name == "ci") {
+          meta_event_c <- meta_col
+        }
       }
     }
   }
 
-  # --- 3. For RR/OR: if we have meta-style n.e/n.c + event.e/event.c but no bi/di,
-  #        compute bi = n.e - event.e and di = n.c - event.c as new data columns ---
+  # --- 3. For RR/OR: if we have meta-style n.e/n.c + event.e/event.c but no
+  #        bi/di, compute bi = n.e - event.e and di = n.c - event.c --------
   if (measure %in% c("RR", "OR")) {
     has_meta_totals <- (!is.null(meta_n_e_col) && !is.null(meta_n_c_col) &&
                         !is.null(meta_event_e) && !is.null(meta_event_c))
@@ -301,9 +304,6 @@ meta3L <- function(data,
     needs_di <- is.null(col_args[["di"]])
 
     if (has_meta_totals && (needs_bi || needs_di)) {
-      # Compute derived columns in a copy of data (we will work on dat below)
-      # For now, flag that we need to do this after filtering
-      # We'll use sentinel names __bi_derived__ and __di_derived__
       if (needs_bi) col_args[["bi"]] <- ".meta3l_bi_derived"
       if (needs_di) col_args[["di"]] <- ".meta3l_di_derived"
     }

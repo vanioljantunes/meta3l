@@ -102,7 +102,8 @@ draw_zebra_rect <- function(colshade = rgb(0.92, 0.92, 0.92)) {
 #'
 #' Resolves the file path for saving the forest plot based on a sentinel
 #' \code{file} argument, the result object's \code{name} field, the active
-#' \code{meta3l.mwd} option, and the desired \code{format}.
+#' \code{meta3l.mwd} option, the desired \code{format}, and an optional
+#' \code{suffix} for Phase 3 filename patterns.
 #'
 #' @param x      A \code{meta3l_result} object (must have a \code{name} field).
 #' @param file   One of: \code{NULL} (display only, return \code{NULL});
@@ -110,11 +111,16 @@ draw_zebra_rect <- function(colshade = rgb(0.92, 0.92, 0.92)) {
 #'   (returned as-is).
 #' @param format Character string; file extension, e.g. \code{"png"} or
 #'   \code{"pdf"}.
+#' @param suffix Character string; optional suffix appended to the base name
+#'   with an underscore separator before the file extension.  For example,
+#'   \code{suffix = "subgroup_drug"} produces
+#'   \code{"{name}_subgroup_drug.{format}"}.  Defaults to \code{""} (no
+#'   suffix), which preserves backward-compatible behaviour.
 #'
 #' @return A character string (file path) or \code{NULL}.
 #'
 #' @keywords internal
-resolve_file <- function(x, file, format) {
+resolve_file <- function(x, file, format, suffix = "") {
   # NULL: display only
   if (is.null(file)) {
     return(NULL)
@@ -125,15 +131,17 @@ resolve_file <- function(x, file, format) {
     return(file)
   }
 
-  # character(0) sentinel: auto-assemble from name + mwd + format
+  # character(0) sentinel: auto-assemble from name + suffix + mwd + format
   base_name <- if (!is.null(x$name) && nchar(x$name) > 0L) {
     x$name
   } else {
-    "forest_plot"
+    "meta3l_plot"
   }
 
+  fname <- if (nchar(suffix) > 0L) paste0(base_name, "_", suffix) else base_name
+
   dir_path <- getOption("meta3l.mwd", default = getwd())
-  file.path(dir_path, paste0(base_name, ".", format))
+  file.path(dir_path, paste0(fname, ".", format))
 }
 
 # ---------------------------------------------------------------------------

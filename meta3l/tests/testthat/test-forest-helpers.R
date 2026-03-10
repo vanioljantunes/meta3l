@@ -26,14 +26,35 @@ test_that("resolve_file with format=pdf returns .pdf extension", {
   expect_true(grepl("foo\\.pdf$", result))
 })
 
-test_that("resolve_file with name=NULL uses forest_plot fallback", {
+test_that("resolve_file with name=NULL uses meta3l_plot fallback", {
   old <- getOption("meta3l.mwd")
   on.exit(options(meta3l.mwd = old))
   options(meta3l.mwd = "/tmp")
 
   x <- list(name = NULL)
   result <- meta3l:::resolve_file(x, character(0), "png")
-  expect_true(grepl("forest_plot", result))
+  expect_true(grepl("meta3l_plot", result))
+})
+
+test_that("resolve_file with suffix produces suffixed filename", {
+  old <- getOption("meta3l.mwd")
+  on.exit(options(meta3l.mwd = old))
+  options(meta3l.mwd = "/tmp")
+
+  x <- list(name = "myanalysis")
+  result <- meta3l:::resolve_file(x, character(0), "png", suffix = "subgroup_drug")
+  expect_true(grepl("myanalysis_subgroup_drug\\.png$", result))
+})
+
+test_that("resolve_file with empty suffix produces no trailing underscore", {
+  old <- getOption("meta3l.mwd")
+  on.exit(options(meta3l.mwd = old))
+  options(meta3l.mwd = "/tmp")
+
+  x <- list(name = "myanalysis")
+  result <- meta3l:::resolve_file(x, character(0), "png", suffix = "")
+  expect_true(grepl("myanalysis\\.png$", result))
+  expect_false(grepl("_\\.png$", result))
 })
 
 test_that("resolve_file with missing option uses getwd()", {
