@@ -38,9 +38,9 @@
 
 ### Subgroup Analysis
 
-- [ ] **SUBG-01**: Subgroup forest plot with separate three-level fit per subgroup level
-- [ ] **SUBG-02**: Per-subgroup summary polygons with subgroup-level I²
-- [ ] **SUBG-03**: Omnibus Q-test for subgroup differences displayed in plot
+- [x] **SUBG-01**: Subgroup forest plot with separate three-level fit per subgroup level
+- [x] **SUBG-02**: Per-subgroup summary polygons with subgroup-level I²
+- [x] **SUBG-03**: Omnibus Q-test for subgroup differences displayed in plot
 - [x] **SUBG-04**: Mixed-effects moderator model via `rma.mv` with `mods` for formal hypothesis testing
 - [x] **SUBG-05**: Wald-type and likelihood-ratio tests for moderator significance
 
@@ -108,9 +108,9 @@
 | FRST-04 | Phase 2 | Complete |
 | FRST-05 | Phase 2 | Complete |
 | FRST-06 | Phase 2 | Complete |
-| SUBG-01 | Phase 3 | Pending |
-| SUBG-02 | Phase 3 | Pending |
-| SUBG-03 | Phase 3 | Pending |
+| SUBG-01 | Phase 3 | Complete |
+| SUBG-02 | Phase 3 | Complete |
+| SUBG-03 | Phase 3 | Complete |
 | SUBG-04 | Phase 3 | Complete |
 | SUBG-05 | Phase 3 | Complete |
 | MREG-01 | Phase 3 | Complete |
