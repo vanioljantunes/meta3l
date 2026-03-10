@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Package scaffold, Excel import, and internal helpers (utils.R)
-- [ ] 01-02-PLAN.md — Core meta3L() function, S3 methods, tests, and R CMD check compliance
+- [x] 01-02-PLAN.md — Core meta3L() function, S3 methods, tests, and R CMD check compliance
 
 ### Phase 2: Forest Plot and File Output
 **Goal**: Users can produce a publication-quality forest plot from a `meta3l_result` object and save it to a file with a single function call
@@ -44,7 +44,11 @@ Plans:
   3. Alternating study rows have zebra shading and the plot uses grid graphics (not base R graphics)
   4. Calling the function saves a PNG file named after the input data frame by default; user can override filename, format (PDF), width, and height via arguments
   5. Plot dimensions auto-scale with number of studies; calling the function 10 times sequentially in a batch loop produces 10 valid files without graphics device corruption
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Drawing primitives, meta3L() name= argument, read_multisheet_excel() mwd option
+- [ ] 02-02-PLAN.md — forest.meta3L() S3 method, grid layout, file output, R CMD check, visual verification
 
 ### Phase 3: Subgroup, Meta-Regression, and Sensitivity
 **Goal**: Users can run formal moderator analyses, visualize subgroup differences, and assess influence of individual studies or effect sizes on pooled estimates
@@ -66,5 +70,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Model Pipeline | 2/2 | Complete   | 2026-03-10 |
-| 2. Forest Plot and File Output | 0/TBD | Not started | - |
+| 2. Forest Plot and File Output | 0/2 | Planning complete | - |
 | 3. Subgroup, Meta-Regression, and Sensitivity | 0/TBD | Not started | - |
