@@ -48,7 +48,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Drawing primitives, meta3L() name= argument, read_multisheet_excel() mwd option
-- [ ] 02-02-PLAN.md — forest.meta3L() S3 method, grid layout, file output, R CMD check, visual verification
+- [x] 02-02-PLAN.md — forest.meta3L() S3 method, grid layout, file output, R CMD check, visual verification
 
 ### Phase 3: Subgroup, Meta-Regression, and Sensitivity
 **Goal**: Users can run formal moderator analyses, visualize subgroup differences, and assess influence of individual studies or effect sizes on pooled estimates
@@ -60,7 +60,14 @@ Plans:
   3. `bubble.meta3L()` produces a scatter plot with regression line, CI band, back-transformed axes, and the robust clubSandwich p-value displayed on the plot
   4. `loo_cluster.meta3L()` returns a table and influence plot showing pooled estimate trajectory when each study cluster is dropped; output row count equals the number of unique clusters
   5. `loo_effect.meta3L()` returns a table and influence plot showing pooled estimate trajectory when each individual effect size is dropped
-**Plans**: TBD
+**Plans:** 5 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — API refactor (meta-style column names), resolve_file suffix, test fixture updates
+- [ ] 03-02-PLAN.md — moderator.meta3L() with Wald and LRT tests, print method
+- [ ] 03-03-PLAN.md — bubble.meta3L() meta-regression scatter plot with CI band and summary table
+- [ ] 03-04-PLAN.md — loo_cluster.meta3L() and loo_effect.meta3L() leave-one-out influence analysis
+- [ ] 03-05-PLAN.md — forest_subgroup.meta3L() grouped forest plot with omnibus Q-test, visual verification
 
 ## Progress
 
@@ -71,4 +78,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Core Model Pipeline | 2/2 | Complete   | 2026-03-10 |
 | 2. Forest Plot and File Output | 2/2 | Complete   | 2026-03-10 |
-| 3. Subgroup, Meta-Regression, and Sensitivity | 0/TBD | Not started | - |
+| 3. Subgroup, Meta-Regression, and Sensitivity | 0/5 | Not started | - |
