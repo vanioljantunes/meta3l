@@ -46,10 +46,10 @@
 
 ### Meta-Regression
 
-- [ ] **MREG-01**: Bubble plot with scatter points sized by precision (1/sqrt(vi))
-- [ ] **MREG-02**: Regression line with confidence interval band
-- [ ] **MREG-03**: Back-transformed axes (e.g., probability scale for PLO/PAS)
-- [ ] **MREG-04**: Robust p-value from clubSandwich displayed on plot
+- [x] **MREG-01**: Bubble plot with scatter points sized by precision (1/sqrt(vi))
+- [x] **MREG-02**: Regression line with confidence interval band
+- [x] **MREG-03**: Back-transformed axes (e.g., probability scale for PLO/PAS)
+- [x] **MREG-04**: Robust p-value from clubSandwich displayed on plot
 
 ### Sensitivity Analysis
 
@@ -113,10 +113,10 @@
 | SUBG-03 | Phase 3 | Pending |
 | SUBG-04 | Phase 3 | Pending |
 | SUBG-05 | Phase 3 | Pending |
-| MREG-01 | Phase 3 | Pending |
-| MREG-02 | Phase 3 | Pending |
-| MREG-03 | Phase 3 | Pending |
-| MREG-04 | Phase 3 | Pending |
+| MREG-01 | Phase 3 | Complete |
+| MREG-02 | Phase 3 | Complete |
+| MREG-03 | Phase 3 | Complete |
+| MREG-04 | Phase 3 | Complete |
 | SENS-01 | Phase 3 | Complete |
 | SENS-02 | Phase 3 | Complete |
 | OUTP-01 | Phase 2 | Complete |

@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-03-10T22:05:58.806Z"
-last_activity: 2026-03-10 — 03-01 meta3L() meta-style API + auto-detection + resolve_file suffix (194 tests pass, 0 errors 0 warnings)
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-10T22:05:30Z"
+last_activity: 2026-03-10 — 03-03 bubble.meta3L() meta-regression bubble plot with clubSandwich robust p-value (266 tests pass, 0 failures)
 progress:
   total_phases: 3
   completed_phases: 2
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 ## Current Position
 
 Phase: 3 of 3 (Subgroup Analysis, Meta-Regression, Sensitivity) — IN PROGRESS
-Plan: 03-01 complete — meta3L() meta-style API + resolve_file suffix + fixtures (194 tests pass)
-Status: 03-01 done; next is 03-02 subgroup analysis
-Last activity: 2026-03-10 — 03-01 meta3L() meta-style API + auto-detection + resolve_file suffix (194 tests pass, 0 errors 0 warnings)
+Plan: 03-03 complete — bubble.meta3L() meta-regression bubble plot with robust p-value (266 tests pass)
+Status: 03-03 done; MREG-01 through MREG-04 complete
+Last activity: 2026-03-10 — 03-03 bubble.meta3L() meta-regression bubble plot with clubSandwich robust p-value (266 tests pass, 0 failures)
 
 Progress: [█████░░░░░] 56%
 
@@ -56,6 +56,7 @@ Progress: [█████░░░░░] 56%
 | Phase 02-forest-plot-file-output P01 | 5min | 2 tasks | 6 files |
 | Phase 02-forest-plot-file-output P02 | 15min | 3 tasks | 7 files |
 | Phase 03-subgroup-meta-regression-sensitivity P01 | 10min | 2 tasks | 8 files |
+| Phase 03-subgroup-meta-regression-sensitivity P03 | 11min | 1 task (TDD) | 4 files |
 | Phase 03-subgroup-meta-regression-sensitivity P04 | 9 | 2 tasks | 11 files |
 
 ## Accumulated Context
@@ -88,6 +89,9 @@ Recent decisions affecting current work:
 - [Phase 03-subgroup-meta-regression-sensitivity]: resolve_file fallback base_name changed from "forest_plot" to "meta3l_plot" — more generic for Phase 3 plot types beyond forest plots
 - [Phase 03-subgroup-meta-regression-sensitivity]: S3 methods named loo_cluster.meta3l_result and loo_effect.meta3l_result — UseMethod dispatch requires class name match; meta3l_result objects have class meta3l_result not meta3L
 - [Phase 03-subgroup-meta-regression-sensitivity]: Sequential lapply for LOO loops (not mclapply/parLapply) — Windows-safe; compute_i2 needs rma.mv sigma2 so baseline I2 requires fresh rma.mv call (not the robust wrapper in x$model)
+- [Phase 03-subgroup-meta-regression-sensitivity]: bubble.meta3L method named with .meta3L suffix (not .meta3l_result) — consistent with forest.meta3L pattern; tests call method directly
+- [Phase 03-subgroup-meta-regression-sensitivity]: bubble.meta3L uses stats::predict() for prediction grid — S3 dispatch to predict.rma works without NAMESPACE import of metafor::predict.rma
+- [Phase 03-subgroup-meta-regression-sensitivity]: bubble.meta3L back-transformed estimate at mean moderator (not intercept) — predict(fit_full, newmods=mean) more interpretable on back-transformed scale
 
 ### Pending Todos
 
