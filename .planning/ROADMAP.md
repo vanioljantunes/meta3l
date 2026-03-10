@@ -63,7 +63,7 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — API refactor (meta-style column names), resolve_file suffix, test fixture updates
+- [x] 03-01-PLAN.md — API refactor (meta-style column names), resolve_file suffix, test fixture updates
 - [ ] 03-02-PLAN.md — moderator.meta3L() with Wald and LRT tests, print method
 - [ ] 03-03-PLAN.md — bubble.meta3L() meta-regression scatter plot with CI band and summary table
 - [ ] 03-04-PLAN.md — loo_cluster.meta3L() and loo_effect.meta3L() leave-one-out influence analysis
@@ -78,4 +78,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Core Model Pipeline | 2/2 | Complete   | 2026-03-10 |
 | 2. Forest Plot and File Output | 2/2 | Complete   | 2026-03-10 |
-| 3. Subgroup, Meta-Regression, and Sensitivity | 0/5 | Not started | - |
+| 3. Subgroup, Meta-Regression, and Sensitivity | 1/5 | In progress | - |

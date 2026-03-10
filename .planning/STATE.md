@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-10T21:03:56.973Z"
-last_activity: 2026-03-10 — 02-02 forest.meta3L() implemented (157 tests pass, 0 errors 0 warnings)
+status: in_progress
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-10T21:50:09Z"
+last_activity: 2026-03-10 — 03-01 meta3L() meta-style API + auto-detection + resolve_file suffix (194 tests pass, 0 errors 0 warnings)
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 44
+  total_plans: 9
+  completed_plans: 5
+  percent: 56
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Make three-level meta-analysis accessible through a clean API that handles multilevel modeling complexity while producing publication-quality forest plots.
-**Current focus:** Phase 2 — Forest Plot and File Output
+**Current focus:** Phase 3 — Subgroup Analysis, Meta-Regression, Sensitivity
 
 ## Current Position
 
-Phase: 2 of 3 (Forest Plot and File Output) — IN PROGRESS
-Plan: 02-02 in progress — Tasks 1+2 complete, awaiting checkpoint:human-verify (Task 3)
-Status: 02-02 Tasks 1 and 2 done (forest.meta3L built, R CMD check clean); user must visually verify output
-Last activity: 2026-03-10 — 02-02 forest.meta3L() implemented (157 tests pass, 0 errors 0 warnings)
+Phase: 3 of 3 (Subgroup Analysis, Meta-Regression, Sensitivity) — IN PROGRESS
+Plan: 03-01 complete — meta3L() meta-style API + resolve_file suffix + fixtures (194 tests pass)
+Status: 03-01 done; next is 03-02 subgroup analysis
+Last activity: 2026-03-10 — 03-01 meta3L() meta-style API + auto-detection + resolve_file suffix (194 tests pass, 0 errors 0 warnings)
 
-Progress: [████░░░░░░] 44%
+Progress: [█████░░░░░] 56%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [████░░░░░░] 44%
 | Phase 01-core-model-pipeline P02 | 12min | 2 tasks | 11 files |
 | Phase 02-forest-plot-file-output P01 | 5min | 2 tasks | 6 files |
 | Phase 02-forest-plot-file-output P02 | 15min | 3 tasks | 7 files |
+| Phase 03-subgroup-meta-regression-sensitivity P01 | 10min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 02-forest-plot-file-output]: import metafor::forest as S3 generic source — required for S3method(forest, meta3L) dispatch to work correctly
 - [Phase 02-forest-plot-file-output]: grDevices functions declared via @importFrom (not explicit grDevices:: prefix) — CRAN check requires explicit import declarations
 - [Phase 02-forest-plot-file-output]: nullfile() is a base function, not grDevices export — @importFrom grDevices nullfile must not be used
+- [Phase 03-subgroup-meta-regression-sensitivity]: META_COL_MAP placed at file top (before docstring) — when placed after @examples closing brace, roxygen2 absorbed the full function docstring into META_COL_MAP.Rd and exported it
+- [Phase 03-subgroup-meta-regression-sensitivity]: For RR/OR meta-style API, n.e/n.c map to internal bi/di derivation (not n1i/n2i) — escalc for RR/OR requires ai, bi, ci, di (2x2 cells), not totals
+- [Phase 03-subgroup-meta-regression-sensitivity]: resolve_file fallback base_name changed from "forest_plot" to "meta3l_plot" — more generic for Phase 3 plot types beyond forest plots
 
 ### Pending Todos
 
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T21:03:56.970Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-subgroup-meta-regression-sensitivity/03-CONTEXT.md
+Last session: 2026-03-10T21:50:09Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-subgroup-meta-regression-sensitivity/03-02-PLAN.md
