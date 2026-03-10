@@ -29,10 +29,10 @@
 
 ### Forest Plot
 
-- [ ] **FRST-01**: Forest plot displays study-level point estimates with confidence intervals
+- [x] **FRST-01**: Forest plot displays study-level point estimates with confidence intervals
 - [x] **FRST-02**: Pooled effect shown as summary diamond
-- [ ] **FRST-03**: Multilevel I² (total, between, within) displayed in summary label
-- [ ] **FRST-04**: User-defined `ilab` columns supported (e.g., dose, regimen, follow-up)
+- [x] **FRST-03**: Multilevel I² (total, between, within) displayed in summary label
+- [x] **FRST-04**: User-defined `ilab` columns supported (e.g., dose, regimen, follow-up)
 - [x] **FRST-05**: Zebra shading for alternating study rows
 - [x] **FRST-06**: Grid graphics system (not base R) for publication-quality output
 
@@ -58,7 +58,7 @@
 
 ### Output
 
-- [ ] **OUTP-01**: PNG output by default, PDF supported via argument
+- [x] **OUTP-01**: PNG output by default, PDF supported via argument
 - [x] **OUTP-02**: Filename defaults to data frame name (from Excel sheet), overridable
 - [x] **OUTP-03**: Image dimensions (width, height) settable via arguments with auto-estimation based on number of studies
 
@@ -102,10 +102,10 @@
 | MODL-06 | Phase 1 | Complete |
 | MODL-07 | Phase 1 | Complete |
 | MODL-08 | Phase 1 | Complete |
-| FRST-01 | Phase 2 | Pending |
+| FRST-01 | Phase 2 | Complete |
 | FRST-02 | Phase 2 | Complete |
-| FRST-03 | Phase 2 | Pending |
-| FRST-04 | Phase 2 | Pending |
+| FRST-03 | Phase 2 | Complete |
+| FRST-04 | Phase 2 | Complete |
 | FRST-05 | Phase 2 | Complete |
 | FRST-06 | Phase 2 | Complete |
 | SUBG-01 | Phase 3 | Pending |
@@ -119,7 +119,7 @@
 | MREG-04 | Phase 3 | Pending |
 | SENS-01 | Phase 3 | Pending |
 | SENS-02 | Phase 3 | Pending |
-| OUTP-01 | Phase 2 | Pending |
+| OUTP-01 | Phase 2 | Complete |
 | OUTP-02 | Phase 2 | Complete |
 | OUTP-03 | Phase 2 | Complete |
 
