@@ -50,6 +50,9 @@
 #'   Currently reserved for future use.
 #' @param sdi Character string; column name for a single-group standard
 #'   deviation.  Currently reserved for future use.
+#' @param name Character string; optional name for the analysis (e.g., the
+#'   Excel sheet name). Used by \code{forest.meta3L()} for default output
+#'   filenames. Defaults to \code{NULL}.
 #'
 #' @return An object of class \code{"meta3l_result"}, a named list with the
 #'   following components:
@@ -70,6 +73,7 @@
 #'     \item{estimate}{Back-transformed pooled estimate (numeric scalar).}
 #'     \item{ci.lb}{Back-transformed lower 95\% confidence limit.}
 #'     \item{ci.ub}{Back-transformed upper 95\% confidence limit.}
+#'     \item{name}{The \code{name} argument as supplied (or \code{NULL}).}
 #'   }
 #'
 #' @export
@@ -105,7 +109,8 @@ meta3L <- function(data,
                    m2i      = NULL,
                    sd2i     = NULL,
                    mi       = NULL,
-                   sdi      = NULL) {
+                   sdi      = NULL,
+                   name     = NULL) {
 
   # --- 1. Resolve back-transform early (also validates measure) ---------------
   transf_fn <- resolve_transf(measure, transf)
@@ -217,7 +222,8 @@ meta3L <- function(data,
       TE_id    = "TE_id",
       estimate = estimate,
       ci.lb    = ci_lb,
-      ci.ub    = ci_ub
+      ci.ub    = ci_ub,
+      name     = name
     ),
     class = "meta3l_result"
   )
