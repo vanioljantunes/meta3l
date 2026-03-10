@@ -12,7 +12,7 @@ meta3L is built in three phases determined by hard dependency order. Phase 1 est
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Model Pipeline** - Package scaffold, Excel import, three-level model fitting, multilevel I², robust variance, back-transformation, R >= 4.0 CRAN compliance
+- [x] **Phase 1: Core Model Pipeline** - Package scaffold, Excel import, three-level model fitting, multilevel I², robust variance, back-transformation, R >= 4.0 CRAN compliance (completed 2026-03-10)
 - [ ] **Phase 2: Forest Plot and File Output** - Grid-based forest plot with multilevel I² summary label, ilab columns, zebra shading, pooled diamond, PNG/PDF output with auto-naming and auto-scaled dimensions
 - [ ] **Phase 3: Subgroup, Meta-Regression, and Sensitivity** - Subgroup forest plots with omnibus Q-test, mixed-effects moderator models, bubble plots, and leave-one-out influence analyses at cluster and effect-size level
 
@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Calling `print()` on a `meta3l_result` displays pooled estimate, 95% CI (back-transformed), multilevel I² breakdown, and the assumed rho value
   4. Package passes `R CMD check --as-cran` with zero errors and zero warnings on R >= 4.0 (no native pipe, no `:::`)
   5. Wrong or unsupported `measure` values (e.g., PFT) produce an informative `stop()` rather than silently wrong output
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Package scaffold, Excel import, and internal helpers (utils.R)
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Model Pipeline | 1/2 | In Progress|  |
+| 1. Core Model Pipeline | 2/2 | Complete   | 2026-03-10 |
 | 2. Forest Plot and File Output | 0/TBD | Not started | - |
 | 3. Subgroup, Meta-Regression, and Sensitivity | 0/TBD | Not started | - |

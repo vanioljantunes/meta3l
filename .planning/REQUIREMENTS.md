@@ -18,10 +18,10 @@
 
 ### Core Model
 
-- [ ] **MODL-01**: User can fit three-level random-effects model via `rma.mv` with `~ 1 | cluster / effect_id`
-- [ ] **MODL-02**: Variance-covariance matrix constructed via `vcalc` with configurable rho (default 0.5)
-- [ ] **MODL-03**: Robust variance estimation applied via `clubSandwich` (CR2) by default
-- [ ] **MODL-04**: Multilevel I² computed automatically (total, between-cluster, within-cluster) using P-matrix projection
+- [x] **MODL-01**: User can fit three-level random-effects model via `rma.mv` with `~ 1 | cluster / effect_id`
+- [x] **MODL-02**: Variance-covariance matrix constructed via `vcalc` with configurable rho (default 0.5)
+- [x] **MODL-03**: Robust variance estimation applied via `clubSandwich` (CR2) by default
+- [x] **MODL-04**: Multilevel I² computed automatically (total, between-cluster, within-cluster) using P-matrix projection
 - [x] **MODL-05**: Back-transformation auto-detected from effect size measure (PLO→plogis, PAS→iarcsin, SMD→identity, RR→exp, OR→exp) with user override via `transf` argument
 - [x] **MODL-06**: Support for PAS, PLO, SMD, MD, RR, OR effect size types
 - [x] **MODL-07**: Default cluster column is `studlab`, overridable via argument
@@ -94,10 +94,10 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | IMPT-01 | Phase 1 | Complete |
-| MODL-01 | Phase 1 | Pending |
-| MODL-02 | Phase 1 | Pending |
-| MODL-03 | Phase 1 | Pending |
-| MODL-04 | Phase 1 | Pending |
+| MODL-01 | Phase 1 | Complete |
+| MODL-02 | Phase 1 | Complete |
+| MODL-03 | Phase 1 | Complete |
+| MODL-04 | Phase 1 | Complete |
 | MODL-05 | Phase 1 | Complete |
 | MODL-06 | Phase 1 | Complete |
 | MODL-07 | Phase 1 | Complete |

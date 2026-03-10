@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-03-10T18:09:50.793Z"
-last_activity: "2026-03-10 — Completed 01-01: package scaffold, read_multisheet_excel, resolve_transf, validate_columns, compute_i2"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-03-10T18:25:00.000Z"
+last_activity: "2026-03-10 — Completed 01-02: meta3L() core function, print/summary S3 methods, R CMD check 0 errors 0 warnings"
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 17
+  completed_plans: 2
+  percent: 33
 ---
 
 # Project State
@@ -25,32 +25,33 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 
 ## Current Position
 
-Phase: 1 of 3 (Core Model Pipeline)
-Plan: 1 of 2 in current phase (01-01 complete, 01-02 next)
-Status: In progress
-Last activity: 2026-03-10 — Completed 01-01: package scaffold, read_multisheet_excel, resolve_transf, validate_columns, compute_i2
+Phase: 1 of 3 (Core Model Pipeline) — COMPLETE
+Plan: 2 of 2 in phase 1 (both 01-01 and 01-02 complete)
+Status: Phase 1 complete; ready for Phase 2 (Forest Plots)
+Last activity: 2026-03-10 — Completed 01-02: meta3L() core function, print/summary S3 methods, R CMD check 0 errors 0 warnings
 
-Progress: [█░░░░░░░░░] 17%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 5 min
-- Total execution time: 5 min
+- Total plans completed: 2
+- Average duration: 8.5 min
+- Total execution time: 17 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-core-model-pipeline | 1/2 | 5 min | 5 min |
+| 01-core-model-pipeline | 2/2 | 17 min | 8.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min)
-- Trend: —
+- Last 5 plans: 01-01 (5 min), 01-02 (12 min)
+- Trend: Phase 1 complete
 
 *Updated after each plan completion*
 | Phase 01-core-model-pipeline P01 | 5min | 2 tasks | 17 files |
+| Phase 01-core-model-pipeline P02 | 12min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,9 @@ Recent decisions affecting current work:
 - REQUIRED_COLS list in utils.R is single source of truth for per-measure escalc column requirements (01-01)
 - SMD/MD use two-group form m1i/sd1i/n1i/m2i/sd2i/n2i per locked CONTEXT.md decision (01-01)
 - compute_i2 uses solve(V) as precision matrix — V from vcalc is non-diagonal (01-01)
+- [Phase 01-core-model-pipeline]: Dynamic rma.mv formula uses as.formula(paste0('~ 1 | ', cluster, ' / TE_id')) — cluster always resolved at runtime
+- [Phase 01-core-model-pipeline]: Column renaming strategy before do.call(escalc, ...) avoids escalc pitfall 4 (vector vs. column name confusion)
+- [Phase 01-core-model-pipeline]: clubSandwich in Imports declared via @importFrom clubSandwich vcovCR; meta3L always calls robust(clubSandwich=TRUE)
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T18:09:50.735Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-03-10T18:24:40.996Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
