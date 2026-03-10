@@ -53,8 +53,8 @@
 
 ### Sensitivity Analysis
 
-- [ ] **SENS-01**: Leave-one-out at cluster level — drop each study, refit, show table + influence plot with I² trajectory
-- [ ] **SENS-02**: Leave-one-out at within-cluster level — drop each effect size, refit, show table + influence plot with I² trajectory
+- [x] **SENS-01**: Leave-one-out at cluster level — drop each study, refit, show table + influence plot with I² trajectory
+- [x] **SENS-02**: Leave-one-out at within-cluster level — drop each effect size, refit, show table + influence plot with I² trajectory
 
 ### Output
 
@@ -117,8 +117,8 @@
 | MREG-02 | Phase 3 | Pending |
 | MREG-03 | Phase 3 | Pending |
 | MREG-04 | Phase 3 | Pending |
-| SENS-01 | Phase 3 | Pending |
-| SENS-02 | Phase 3 | Pending |
+| SENS-01 | Phase 3 | Complete |
+| SENS-02 | Phase 3 | Complete |
 | OUTP-01 | Phase 2 | Complete |
 | OUTP-02 | Phase 2 | Complete |
 | OUTP-03 | Phase 2 | Complete |

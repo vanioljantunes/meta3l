@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-10T21:50:09Z"
+status: completed
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-03-10T22:05:58.806Z"
 last_activity: 2026-03-10 — 03-01 meta3L() meta-style API + auto-detection + resolve_file suffix (194 tests pass, 0 errors 0 warnings)
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 9
-  completed_plans: 5
+  completed_plans: 6
   percent: 56
 ---
 
@@ -56,6 +56,7 @@ Progress: [█████░░░░░] 56%
 | Phase 02-forest-plot-file-output P01 | 5min | 2 tasks | 6 files |
 | Phase 02-forest-plot-file-output P02 | 15min | 3 tasks | 7 files |
 | Phase 03-subgroup-meta-regression-sensitivity P01 | 10min | 2 tasks | 8 files |
+| Phase 03-subgroup-meta-regression-sensitivity P04 | 9 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Recent decisions affecting current work:
 - [Phase 03-subgroup-meta-regression-sensitivity]: META_COL_MAP placed at file top (before docstring) — when placed after @examples closing brace, roxygen2 absorbed the full function docstring into META_COL_MAP.Rd and exported it
 - [Phase 03-subgroup-meta-regression-sensitivity]: For RR/OR meta-style API, n.e/n.c map to internal bi/di derivation (not n1i/n2i) — escalc for RR/OR requires ai, bi, ci, di (2x2 cells), not totals
 - [Phase 03-subgroup-meta-regression-sensitivity]: resolve_file fallback base_name changed from "forest_plot" to "meta3l_plot" — more generic for Phase 3 plot types beyond forest plots
+- [Phase 03-subgroup-meta-regression-sensitivity]: S3 methods named loo_cluster.meta3l_result and loo_effect.meta3l_result — UseMethod dispatch requires class name match; meta3l_result objects have class meta3l_result not meta3L
+- [Phase 03-subgroup-meta-regression-sensitivity]: Sequential lapply for LOO loops (not mclapply/parLapply) — Windows-safe; compute_i2 needs rma.mv sigma2 so baseline I2 requires fresh rma.mv call (not the robust wrapper in x$model)
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T21:50:09Z
-Stopped at: Completed 03-01-PLAN.md
-Resume file: .planning/phases/03-subgroup-meta-regression-sensitivity/03-02-PLAN.md
+Last session: 2026-03-10T22:05:58.804Z
+Stopped at: Completed 03-04-PLAN.md
+Resume file: None
