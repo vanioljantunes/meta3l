@@ -14,7 +14,7 @@
 
 ### Data Import
 
-- [ ] **IMPT-01**: User can import multi-sheet Excel file into a named list of data frames (one per sheet/outcome)
+- [x] **IMPT-01**: User can import multi-sheet Excel file into a named list of data frames (one per sheet/outcome)
 
 ### Core Model
 
@@ -22,10 +22,10 @@
 - [ ] **MODL-02**: Variance-covariance matrix constructed via `vcalc` with configurable rho (default 0.5)
 - [ ] **MODL-03**: Robust variance estimation applied via `clubSandwich` (CR2) by default
 - [ ] **MODL-04**: Multilevel I² computed automatically (total, between-cluster, within-cluster) using P-matrix projection
-- [ ] **MODL-05**: Back-transformation auto-detected from effect size measure (PLO→plogis, PAS→iarcsin, SMD→identity, RR→exp, OR→exp) with user override via `transf` argument
-- [ ] **MODL-06**: Support for PAS, PLO, SMD, MD, RR, OR effect size types
-- [ ] **MODL-07**: Default cluster column is `studlab`, overridable via argument
-- [ ] **MODL-08**: R >= 4.0 compatibility (no native pipe `|>` or `\(x)` lambda)
+- [x] **MODL-05**: Back-transformation auto-detected from effect size measure (PLO→plogis, PAS→iarcsin, SMD→identity, RR→exp, OR→exp) with user override via `transf` argument
+- [x] **MODL-06**: Support for PAS, PLO, SMD, MD, RR, OR effect size types
+- [x] **MODL-07**: Default cluster column is `studlab`, overridable via argument
+- [x] **MODL-08**: R >= 4.0 compatibility (no native pipe `|>` or `\(x)` lambda)
 
 ### Forest Plot
 
@@ -93,15 +93,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IMPT-01 | Phase 1 | Pending |
+| IMPT-01 | Phase 1 | Complete |
 | MODL-01 | Phase 1 | Pending |
 | MODL-02 | Phase 1 | Pending |
 | MODL-03 | Phase 1 | Pending |
 | MODL-04 | Phase 1 | Pending |
-| MODL-05 | Phase 1 | Pending |
-| MODL-06 | Phase 1 | Pending |
-| MODL-07 | Phase 1 | Pending |
-| MODL-08 | Phase 1 | Pending |
+| MODL-05 | Phase 1 | Complete |
+| MODL-06 | Phase 1 | Complete |
+| MODL-07 | Phase 1 | Complete |
+| MODL-08 | Phase 1 | Complete |
 | FRST-01 | Phase 2 | Pending |
 | FRST-02 | Phase 2 | Pending |
 | FRST-03 | Phase 2 | Pending |

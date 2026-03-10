@@ -28,10 +28,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Calling `print()` on a `meta3l_result` displays pooled estimate, 95% CI (back-transformed), multilevel I² breakdown, and the assumed rho value
   4. Package passes `R CMD check --as-cran` with zero errors and zero warnings on R >= 4.0 (no native pipe, no `:::`)
   5. Wrong or unsupported `measure` values (e.g., PFT) produce an informative `stop()` rather than silently wrong output
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 01-01-PLAN.md — Package scaffold, Excel import, and internal helpers (utils.R)
+- [x] 01-01-PLAN.md — Package scaffold, Excel import, and internal helpers (utils.R)
 - [ ] 01-02-PLAN.md — Core meta3L() function, S3 methods, tests, and R CMD check compliance
 
 ### Phase 2: Forest Plot and File Output
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Model Pipeline | 0/2 | Planning complete | - |
+| 1. Core Model Pipeline | 1/2 | In Progress|  |
 | 2. Forest Plot and File Output | 0/TBD | Not started | - |
 | 3. Subgroup, Meta-Regression, and Sensitivity | 0/TBD | Not started | - |
