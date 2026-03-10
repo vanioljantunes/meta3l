@@ -1,0 +1,24 @@
+Package: meta3l
+Title: Three-Level Meta-Analysis via metafor
+Version: 0.1.0
+Authors@R:
+    person("Thais", "Author", email = "author@example.com", role = c("aut", "cre"))
+Description: Provides a clean, single-call API for conducting three-level meta-analyses
+    using the metafor package. Handles multilevel modeling complexity (escalc, vcalc,
+    rma.mv, robust variance estimation, and I-squared decomposition) transparently,
+    supports multiple effect size measures (proportions, risk ratios, odds ratios,
+    standardized mean differences), and produces publication-quality forest plots.
+License: MIT + file LICENSE
+Encoding: UTF-8
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.0.0)
+Imports:
+    metafor (>= 4.0-0),
+    readxl (>= 1.3.0),
+    rstudioapi (>= 0.13),
+    clubSandwich (>= 0.5.0)
+Suggests:
+    testthat (>= 3.0.0),
+    writexl
+Config/testthat/edition: 3
