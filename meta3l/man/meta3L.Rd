@@ -11,6 +11,16 @@ meta3L(
   cluster = "studlab",
   rho = 0.5,
   transf = NULL,
+  event = NULL,
+  n = NULL,
+  event.e = NULL,
+  n.e = NULL,
+  event.c = NULL,
+  n.c = NULL,
+  mean.e = NULL,
+  sd.e = NULL,
+  mean.c = NULL,
+  sd.c = NULL,
   xi = NULL,
   ni = NULL,
   ai = NULL,
@@ -51,41 +61,93 @@ identifies study clusters (level 3).  Defaults to \code{"studlab"}.}
 confidence limits.  If \code{NULL} (default), the transformation is
 resolved automatically from \code{measure}.}
 
+\item{event}{Character string; column name for the event count (single
+group).  Required for \code{measure = "PLO"} and \code{measure = "PAS"}
+when using meta-style column names.}
+
+\item{n}{Character string; column name for the total count / sample size
+(single group).  Required for \code{measure = "PLO"} and
+\code{measure = "PAS"} when using meta-style column names.}
+
+\item{event.e}{Character string; column name for events in the experimental
+group.  Required for \code{measure = "RR"} and \code{measure = "OR"}
+when using meta-style column names.}
+
+\item{n.e}{Character string; column name for the total in the experimental
+group.  Required for \code{measure = "RR"} and \code{measure = "OR"}
+when using meta-style column names.}
+
+\item{event.c}{Character string; column name for events in the control
+group.  Required for \code{measure = "RR"} and \code{measure = "OR"}
+when using meta-style column names.}
+
+\item{n.c}{Character string; column name for the total in the control
+group.  Required for \code{measure = "RR"} and \code{measure = "OR"}
+when using meta-style column names.}
+
+\item{mean.e}{Character string; column name for the mean in the experimental
+group.  Required for \code{measure = "SMD"} and \code{measure = "MD"}
+when using meta-style column names.}
+
+\item{sd.e}{Character string; column name for the standard deviation in the
+experimental group.  Required for \code{measure = "SMD"} and
+\code{measure = "MD"} when using meta-style column names.}
+
+\item{mean.c}{Character string; column name for the mean in the control
+group.  Required for \code{measure = "SMD"} and \code{measure = "MD"}
+when using meta-style column names.}
+
+\item{sd.c}{Character string; column name for the standard deviation in the
+control group.  Required for \code{measure = "SMD"} and
+\code{measure = "MD"} when using meta-style column names.}
+
 \item{xi}{Character string; column name for the numerator count (events).
-Required for \code{measure = "PLO"} and \code{measure = "PAS"}.}
+Deprecated; use \code{event} instead.  For \code{measure = "PLO"} and
+\code{measure = "PAS"}.}
 
 \item{ni}{Character string; column name for the total count (sample size).
-Required for \code{measure = "PLO"} and \code{measure = "PAS"}.}
+Deprecated; use \code{n} instead.  For \code{measure = "PLO"} and
+\code{measure = "PAS"}.}
 
 \item{ai}{Character string; column name for events in group 1 (2x2 table).
-Required for \code{measure = "RR"} and \code{measure = "OR"}.}
+Deprecated; use \code{event.e} instead.  For \code{measure = "RR"} and
+\code{measure = "OR"}.}
 
 \item{bi}{Character string; column name for non-events in group 1.
-Required for \code{measure = "RR"} and \code{measure = "OR"}.}
+Deprecated; use \code{event.e} + \code{n.e} instead (computed internally).
+For \code{measure = "RR"} and \code{measure = "OR"}.}
 
 \item{ci}{Character string; column name for events in group 2.
-Required for \code{measure = "RR"} and \code{measure = "OR"}.}
+Deprecated; use \code{event.c} instead.  For \code{measure = "RR"} and
+\code{measure = "OR"}.}
 
 \item{di}{Character string; column name for non-events in group 2.
-Required for \code{measure = "RR"} and \code{measure = "OR"}.}
+Deprecated; use \code{event.c} + \code{n.c} instead (computed internally).
+For \code{measure = "RR"} and \code{measure = "OR"}.}
 
 \item{n1i}{Character string; column name for sample size in group 1.
-Required for \code{measure = "SMD"} and \code{measure = "MD"}.}
+Deprecated; use \code{n.e} instead.  For \code{measure = "SMD"} and
+\code{measure = "MD"}.}
 
 \item{n2i}{Character string; column name for sample size in group 2.
-Required for \code{measure = "SMD"} and \code{measure = "MD"}.}
+Deprecated; use \code{n.c} instead.  For \code{measure = "SMD"} and
+\code{measure = "MD"}.}
 
 \item{m1i}{Character string; column name for mean in group 1.
-Required for \code{measure = "SMD"} and \code{measure = "MD"}.}
+Deprecated; use \code{mean.e} instead.  For \code{measure = "SMD"} and
+\code{measure = "MD"}.}
 
 \item{sd1i}{Character string; column name for standard deviation in group 1.
-Required for \code{measure = "SMD"} and \code{measure = "MD"}.}
+Deprecated; use \code{sd.e} instead.  For \code{measure = "SMD"} and
+\code{measure = "MD"}.}
 
 \item{m2i}{Character string; column name for mean in group 2.
-Required for \code{measure = "SMD"} and \code{measure = "MD"}.}
+Deprecated; use \code{mean.c} instead.  For \code{measure = "SMD"} and
+\code{measure = "MD"}.}
 
 \item{sd2i}{Character string; column name for standard deviation in group 2.
-Required for \code{measure = "SMD"} and \code{measure = "MD"}.}
+Deprecated; use \code{sd.c} instead.  For \code{measure = "SMD"} and
+\code{measure = "MD"}.}
 
 \item{mi}{Character string; column name for a single-group mean.
 Currently reserved for future use.}
@@ -127,16 +189,48 @@ function call.  Returns an S3 object of class \code{meta3l_result} that
 contains the fitted model, heterogeneity statistics, and back-transformed
 pooled estimate.
 }
+\section{Column name conventions}{
+
+\code{meta3L()} accepts two column naming styles:
+
+\strong{Meta-style names} (preferred):
+\itemize{
+  \item PLO/PAS: \code{event}, \code{n}
+  \item RR/OR: \code{event.e}, \code{n.e}, \code{event.c}, \code{n.c}
+  \item SMD/MD: \code{mean.e}, \code{sd.e}, \code{n.e}, \code{mean.c}, \code{sd.c}, \code{n.c}
+}
+
+\strong{Escalc-style names} (backward compatible, deprecated):
+\itemize{
+  \item PLO/PAS: \code{xi}, \code{ni}
+  \item RR/OR: \code{ai}, \code{bi}, \code{ci}, \code{di}
+  \item SMD/MD: \code{m1i}, \code{sd1i}, \code{n1i}, \code{m2i}, \code{sd2i}, \code{n2i}
+}
+
+\strong{Auto-detection}: If no column arguments are supplied, \code{meta3L()}
+will check whether the data frame already contains the standard meta-style
+column names for the requested \code{measure} and use them automatically.
+}
+
 \examples{
 \dontrun{
+# Meta-style column names (preferred)
 d <- data.frame(
-  author  = rep(c("Smith", "Jones"), each = 3),
-  year    = rep(c(2020, 2021), each = 3),
+  studlab = rep(c("Smith, 2020", "Jones, 2021"), each = 3),
+  event   = c(10, 12, 8, 15, 11, 9),
+  n       = c(50, 55, 48, 60, 52, 47)
+)
+r <- meta3L(d, slab = "studlab", event = "event", n = "n", measure = "PLO")
+
+# Auto-detection (data already has standard meta-style column names)
+r2 <- meta3L(d, slab = "studlab", measure = "PLO")
+
+# Escalc-style column names (backward compatible)
+d2 <- data.frame(
   studlab = rep(c("Smith, 2020", "Jones, 2021"), each = 3),
   xi      = c(10, 12, 8, 15, 11, 9),
   ni      = c(50, 55, 48, 60, 52, 47)
 )
-r <- meta3L(d, slab = "studlab", xi = "xi", ni = "ni", measure = "PLO")
-print(r)
+r3 <- meta3L(d2, slab = "studlab", xi = "xi", ni = "ni", measure = "PLO")
 }
 }
