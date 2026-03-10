@@ -93,41 +93,41 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IMPT-01 | — | Pending |
-| MODL-01 | — | Pending |
-| MODL-02 | — | Pending |
-| MODL-03 | — | Pending |
-| MODL-04 | — | Pending |
-| MODL-05 | — | Pending |
-| MODL-06 | — | Pending |
-| MODL-07 | — | Pending |
-| MODL-08 | — | Pending |
-| FRST-01 | — | Pending |
-| FRST-02 | — | Pending |
-| FRST-03 | — | Pending |
-| FRST-04 | — | Pending |
-| FRST-05 | — | Pending |
-| FRST-06 | — | Pending |
-| SUBG-01 | — | Pending |
-| SUBG-02 | — | Pending |
-| SUBG-03 | — | Pending |
-| SUBG-04 | — | Pending |
-| SUBG-05 | — | Pending |
-| MREG-01 | — | Pending |
-| MREG-02 | — | Pending |
-| MREG-03 | — | Pending |
-| MREG-04 | — | Pending |
-| SENS-01 | — | Pending |
-| SENS-02 | — | Pending |
-| OUTP-01 | — | Pending |
-| OUTP-02 | — | Pending |
-| OUTP-03 | — | Pending |
+| IMPT-01 | Phase 1 | Pending |
+| MODL-01 | Phase 1 | Pending |
+| MODL-02 | Phase 1 | Pending |
+| MODL-03 | Phase 1 | Pending |
+| MODL-04 | Phase 1 | Pending |
+| MODL-05 | Phase 1 | Pending |
+| MODL-06 | Phase 1 | Pending |
+| MODL-07 | Phase 1 | Pending |
+| MODL-08 | Phase 1 | Pending |
+| FRST-01 | Phase 2 | Pending |
+| FRST-02 | Phase 2 | Pending |
+| FRST-03 | Phase 2 | Pending |
+| FRST-04 | Phase 2 | Pending |
+| FRST-05 | Phase 2 | Pending |
+| FRST-06 | Phase 2 | Pending |
+| SUBG-01 | Phase 3 | Pending |
+| SUBG-02 | Phase 3 | Pending |
+| SUBG-03 | Phase 3 | Pending |
+| SUBG-04 | Phase 3 | Pending |
+| SUBG-05 | Phase 3 | Pending |
+| MREG-01 | Phase 3 | Pending |
+| MREG-02 | Phase 3 | Pending |
+| MREG-03 | Phase 3 | Pending |
+| MREG-04 | Phase 3 | Pending |
+| SENS-01 | Phase 3 | Pending |
+| SENS-02 | Phase 3 | Pending |
+| OUTP-01 | Phase 2 | Pending |
+| OUTP-02 | Phase 2 | Pending |
+| OUTP-03 | Phase 2 | Pending |
 
 **Coverage:**
 - v1 requirements: 29 total
-- Mapped to phases: 0
-- Unmapped: 29 ⚠️
+- Mapped to phases: 29
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after initial definition*
+*Last updated: 2026-03-10 after roadmap creation*
