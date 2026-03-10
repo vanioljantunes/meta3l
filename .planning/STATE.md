@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-10T19:11:49.279Z"
-last_activity: "2026-03-10 — Completed 01-02: meta3L() core function, print/summary S3 methods, R CMD check 0 errors 0 warnings"
+status: in_progress
+stopped_at: "Completed 02-01: forest_helpers.R drawing primitives, meta3L name= param, read_multisheet_excel mwd option"
+last_updated: "2026-03-10T20:06:00Z"
+last_activity: "2026-03-10 — Completed 02-01: forest_helpers.R with 9 internal helpers, meta3L name= param, read_multisheet_excel options(meta3l.mwd)"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 33
+  total_plans: 3
+  completed_plans: 3
+  percent: 44
 ---
 
 # Project State
@@ -21,37 +21,39 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Make three-level meta-analysis accessible through a clean API that handles multilevel modeling complexity while producing publication-quality forest plots.
-**Current focus:** Phase 1 — Core Model Pipeline
+**Current focus:** Phase 2 — Forest Plot and File Output
 
 ## Current Position
 
-Phase: 1 of 3 (Core Model Pipeline) — COMPLETE
-Plan: 2 of 2 in phase 1 (both 01-01 and 01-02 complete)
-Status: Phase 1 complete; ready for Phase 2 (Forest Plots)
-Last activity: 2026-03-10 — Completed 01-02: meta3L() core function, print/summary S3 methods, R CMD check 0 errors 0 warnings
+Phase: 2 of 3 (Forest Plot and File Output) — IN PROGRESS
+Plan: 1 of 2 in phase 2 complete (02-01 done; 02-02 forest.meta3L() pending)
+Status: Phase 2 Plan 1 complete; ready for Plan 2 (forest.meta3L() main function)
+Last activity: 2026-03-10 — Completed 02-01: forest_helpers.R with 9 internal helpers, meta3L name= param, read_multisheet_excel options(meta3l.mwd)
 
-Progress: [███░░░░░░░] 33%
+Progress: [████░░░░░░] 44%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 8.5 min
-- Total execution time: 17 min
+- Total plans completed: 3
+- Average duration: 7.3 min
+- Total execution time: 22 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-core-model-pipeline | 2/2 | 17 min | 8.5 min |
+| 02-forest-plot-file-output | 1/2 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min), 01-02 (12 min)
-- Trend: Phase 1 complete
+- Last 5 plans: 01-01 (5 min), 01-02 (12 min), 02-01 (5 min)
+- Trend: Phase 2 in progress
 
 *Updated after each plan completion*
 | Phase 01-core-model-pipeline P01 | 5min | 2 tasks | 17 files |
 | Phase 01-core-model-pipeline P02 | 12min | 2 tasks | 11 files |
+| Phase 02-forest-plot-file-output P01 | 5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -72,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 01-core-model-pipeline]: Dynamic rma.mv formula uses as.formula(paste0('~ 1 | ', cluster, ' / TE_id')) — cluster always resolved at runtime
 - [Phase 01-core-model-pipeline]: Column renaming strategy before do.call(escalc, ...) avoids escalc pitfall 4 (vector vs. column name confusion)
 - [Phase 01-core-model-pipeline]: clubSandwich in Imports declared via @importFrom clubSandwich vcovCR; meta3L always calls robust(clubSandwich=TRUE)
+- [Phase 02-forest-plot-file-output]: resolve_file uses character(0) sentinel for auto-name (NULL=display-only, string=explicit path)
+- [Phase 02-forest-plot-file-output]: draw_* primitives are viewport-context-free — callers push/pop viewports; forest.meta3L() has full layout control
+- [Phase 02-forest-plot-file-output]: options(meta3l.mwd) set with normalizePath(mustWork=TRUE) inside read_multisheet_excel() for safe path resolution
 
 ### Pending Todos
 
@@ -84,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T19:11:49.277Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-forest-plot-file-output/02-CONTEXT.md
+Last session: 2026-03-10T20:06:00Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: .planning/phases/02-forest-plot-file-output/02-02-PLAN.md

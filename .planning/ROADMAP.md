@@ -47,7 +47,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Drawing primitives, meta3L() name= argument, read_multisheet_excel() mwd option
+- [x] 02-01-PLAN.md — Drawing primitives, meta3L() name= argument, read_multisheet_excel() mwd option
 - [ ] 02-02-PLAN.md — forest.meta3L() S3 method, grid layout, file output, R CMD check, visual verification
 
 ### Phase 3: Subgroup, Meta-Regression, and Sensitivity
@@ -70,5 +70,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Model Pipeline | 2/2 | Complete   | 2026-03-10 |
-| 2. Forest Plot and File Output | 0/2 | Planning complete | - |
+| 2. Forest Plot and File Output | 1/2 | In progress | - |
 | 3. Subgroup, Meta-Regression, and Sensitivity | 0/TBD | Not started | - |
