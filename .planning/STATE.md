@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-03-10T22:05:30Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-10T22:08:33.086Z"
 last_activity: 2026-03-10 — 03-03 bubble.meta3L() meta-regression bubble plot with clubSandwich robust p-value (266 tests pass, 0 failures)
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 8
   percent: 56
 ---
 
@@ -58,6 +58,7 @@ Progress: [█████░░░░░] 56%
 | Phase 03-subgroup-meta-regression-sensitivity P01 | 10min | 2 tasks | 8 files |
 | Phase 03-subgroup-meta-regression-sensitivity P03 | 11min | 1 task (TDD) | 4 files |
 | Phase 03-subgroup-meta-regression-sensitivity P04 | 9 | 2 tasks | 11 files |
+| Phase 03-subgroup-meta-regression-sensitivity P02 | 12 | 1 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,9 @@ Recent decisions affecting current work:
 - [Phase 03-subgroup-meta-regression-sensitivity]: bubble.meta3L method named with .meta3L suffix (not .meta3l_result) — consistent with forest.meta3L pattern; tests call method directly
 - [Phase 03-subgroup-meta-regression-sensitivity]: bubble.meta3L uses stats::predict() for prediction grid — S3 dispatch to predict.rma works without NAMESPACE import of metafor::predict.rma
 - [Phase 03-subgroup-meta-regression-sensitivity]: bubble.meta3L back-transformed estimate at mean moderator (not intercept) — predict(fit_full, newmods=mean) more interpretable on back-transformed scale
+- [Phase 03-subgroup-meta-regression-sensitivity]: moderator.meta3l_result S3 dispatch: class-based dispatch requires method named after the class (meta3l_result), not the constructor function (meta3L)
+- [Phase 03-subgroup-meta-regression-sensitivity]: LRT for moderator uses ML-fitted models (method='ML'): REML not valid for comparing models with different fixed effects — metafor requirement
+- [Phase 03-subgroup-meta-regression-sensitivity]: bobyqa optimizer fallback: tryCatch around rma.mv retries with control=list(optimizer='bobyqa') on convergence failure — handles small/borderline datasets
 
 ### Pending Todos
 
@@ -104,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T22:05:58.804Z
-Stopped at: Completed 03-04-PLAN.md
+Last session: 2026-03-10T22:08:33.084Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None

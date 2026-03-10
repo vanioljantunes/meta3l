@@ -60,7 +60,7 @@ Plans:
   3. `bubble.meta3L()` produces a scatter plot with regression line, CI band, back-transformed axes, and the robust clubSandwich p-value displayed on the plot
   4. `loo_cluster.meta3L()` returns a table and influence plot showing pooled estimate trajectory when each study cluster is dropped; output row count equals the number of unique clusters
   5. `loo_effect.meta3L()` returns a table and influence plot showing pooled estimate trajectory when each individual effect size is dropped
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 - [x] 03-01-PLAN.md — API refactor (meta-style column names), resolve_file suffix, test fixture updates
@@ -78,4 +78,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Core Model Pipeline | 2/2 | Complete   | 2026-03-10 |
 | 2. Forest Plot and File Output | 2/2 | Complete   | 2026-03-10 |
-| 3. Subgroup, Meta-Regression, and Sensitivity | 3/5 | In Progress|  |
+| 3. Subgroup, Meta-Regression, and Sensitivity | 4/5 | In Progress|  |
