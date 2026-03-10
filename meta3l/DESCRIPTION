@@ -1,5 +1,5 @@
 Package: meta3l
-Title: Three-Level Meta-Analysis via metafor
+Title: Three-Level Meta-Analysis via Metafor
 Version: 0.1.0
 Authors@R:
     person("Thais", "Author", email = "author@example.com", role = c("aut", "cre"))
@@ -20,5 +20,6 @@ Imports:
     clubSandwich (>= 0.5.0)
 Suggests:
     testthat (>= 3.0.0),
-    writexl
+    writexl,
+    mockery
 Config/testthat/edition: 3
