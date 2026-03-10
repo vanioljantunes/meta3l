@@ -61,6 +61,7 @@
 #' }
 #'
 #' @importFrom metafor forest
+#' @importFrom grDevices rgb png pdf dev.off
 #' @method forest meta3L
 #' @export
 forest.meta3L <- function(x,

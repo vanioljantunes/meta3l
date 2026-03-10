@@ -82,6 +82,7 @@ draw_ci_line <- function(lb, ub, lwd = 1, col = "black") {
 #' @param colshade Character; fill colour.  Defaults to
 #'   \code{rgb(0.92, 0.92, 0.92)}.
 #'
+#' @importFrom grDevices rgb
 #' @keywords internal
 draw_zebra_rect <- function(colshade = rgb(0.92, 0.92, 0.92)) {
   grid::grid.rect(
@@ -235,8 +236,8 @@ auto_refline <- function(measure) {
 #' @param i2 Named list with numeric elements \code{total}, \code{between},
 #'   and \code{within} (all percentages, 0-100).
 #'
-#' @return A character string, e.g.
-#'   \code{"RE Model  |  I\u00b2 = 85% (between: 60%, within: 25%)"}.
+#' @return A character string with the format
+#'   \sQuote{RE Model | I^2 = 85\% (between: 60\%, within: 25\%)}.
 #'
 #' @keywords internal
 format_mlab <- function(i2) {
