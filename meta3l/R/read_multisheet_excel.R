@@ -14,6 +14,10 @@
 #'   The list names correspond to the sheet names in the workbook. Empty sheets
 #'   are skipped with a warning.
 #'
+#' @details Sets the global option \code{meta3l.mwd} to the directory
+#'   containing the Excel file. This directory is used as the default output
+#'   location by \code{forest.meta3L()}.
+#'
 #' @examples
 #' \dontrun{
 #' # Provide path explicitly
@@ -40,6 +44,7 @@ read_multisheet_excel <- function(path = NULL) {
   }
 
   sheet_names <- readxl::excel_sheets(path)
+  options(meta3l.mwd = dirname(normalizePath(path, mustWork = TRUE)))
 
   result <- lapply(sheet_names, function(s) {
     df <- as.data.frame(readxl::read_excel(path, sheet = s))

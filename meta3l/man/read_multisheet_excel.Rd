@@ -23,6 +23,11 @@ data frames. If both \code{author} and \code{year} columns are present in
 a sheet, a \code{studlab} column is automatically constructed as
 \code{paste0(author, ", ", year)}.
 }
+\details{
+Sets the global option \code{meta3l.mwd} to the directory
+  containing the Excel file. This directory is used as the default output
+  location by \code{forest.meta3L()}.
+}
 \examples{
 \dontrun{
 # Provide path explicitly

@@ -24,7 +24,8 @@ meta3L(
   m2i = NULL,
   sd2i = NULL,
   mi = NULL,
-  sdi = NULL
+  sdi = NULL,
+  name = NULL
 )
 }
 \arguments{
@@ -91,6 +92,10 @@ Currently reserved for future use.}
 
 \item{sdi}{Character string; column name for a single-group standard
 deviation.  Currently reserved for future use.}
+
+\item{name}{Character string; optional name for the analysis (e.g., the
+Excel sheet name). Used by \code{forest.meta3L()} for default output
+filenames. Defaults to \code{NULL}.}
 }
 \value{
 An object of class \code{"meta3l_result"}, a named list with the
@@ -112,6 +117,7 @@ An object of class \code{"meta3l_result"}, a named list with the
     \item{estimate}{Back-transformed pooled estimate (numeric scalar).}
     \item{ci.lb}{Back-transformed lower 95\% confidence limit.}
     \item{ci.ub}{Back-transformed upper 95\% confidence limit.}
+    \item{name}{The \code{name} argument as supplied (or \code{NULL}).}
   }
 }
 \description{
