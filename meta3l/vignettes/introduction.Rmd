@@ -1,0 +1,241 @@
+---
+title: "Introduction to meta3l: Three-Level Meta-Analysis"
+author: "meta3l package authors"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to meta3l: Three-Level Meta-Analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Overview
+
+Three-level meta-analysis extends the classical two-level model to handle
+**nested data**: multiple effect sizes reported within a single study. This
+structure arises when studies measure the same outcome in several subsamples,
+time points, or instruments. Ignoring the nesting inflates precision and
+produces incorrect confidence intervals.
+
+`meta3l` wraps the key steps of a three-level analysis into a single call:
+
+- `metafor::escalc()` — compute effect sizes and sampling variances
+- `metafor::vcalc()` — build a block-diagonal sampling covariance matrix
+- `metafor::rma.mv()` — fit the multilevel random-effects model
+- `clubSandwich::robust()` — apply cluster-robust standard errors
+
+Supported effect size measures:
+
+| Measure | Description |
+|---------|-------------|
+| `PLO`   | Proportion (logit-transformed) |
+| `PAS`   | Proportion (arcsine-transformed) |
+| `SMD`   | Standardized mean difference |
+| `MD`    | Raw mean difference |
+| `RR`    | Log risk ratio |
+| `OR`    | Log odds ratio |
+
+Back-transformation to the original scale is handled automatically.
+
+## Installation
+
+```{r eval=FALSE}
+# From source (development version)
+install.packages("meta3l", repos = NULL, type = "source")
+
+# Or using remotes if hosted on GitHub
+# remotes::install_github("user/meta3l")
+```
+
+## Quick Start: Fitting a Model
+
+```{r eval=FALSE}
+library(meta3l)
+
+# Simulated dataset: prevalence of a condition across studies
+dat <- data.frame(
+  studlab = rep(c("Adams 2019", "Baker 2020", "Clark 2021", "Davis 2022"), each = 3),
+  event   = c(12, 15, 10, 20, 18, 22, 8, 11, 9, 25, 19, 23),
+  n       = c(100, 120, 95, 150, 130, 160, 80, 90, 85, 200, 170, 190),
+  region  = rep(c("North", "South"), each = 6),
+  year    = c(2019, 2019, 2019, 2020, 2020, 2020, 2021, 2021, 2021, 2022, 2022, 2022)
+)
+
+result <- meta3L(dat, slab = "studlab", event = "event", n = "n", measure = "PLO")
+```
+
+`meta3L()` treats each row as one effect size and each unique `studlab` value
+as a cluster (study). The default cluster column is `studlab`; pass
+`cluster = "author"` to use a different column.
+
+## Examining Results
+
+```{r eval=FALSE}
+print(result)
+summary(result)
+```
+
+Key components of the printed output:
+
+- **Pooled estimate**: back-transformed (proportion for PLO/PAS, ratio for
+  RR/OR, original units for SMD/MD) with 95% CI
+- **k / n**: number of studies (clusters) and total number of effect sizes
+- **I-squared decomposition**:
+  - `I2_total`: total heterogeneity
+  - `I2_between`: between-study variance as share of total variance
+  - `I2_within`: within-study variance as share of total variance
+
+Accessing individual components:
+
+```{r eval=FALSE}
+result$estimate    # back-transformed pooled estimate
+result$ci.lb       # lower 95% confidence limit
+result$ci.ub       # upper 95% confidence limit
+result$i2          # named vector: total, between, within
+result$model       # the underlying rma.mv object (full metafor access)
+```
+
+## Forest Plots
+
+`forest.meta3L()` draws a publication-quality forest plot using grid graphics.
+
+```{r eval=FALSE}
+# Display in the viewer (no file saved)
+forest.meta3L(result, file = NULL)
+
+# Save with an auto-generated filename (meta3l_plot_YYYYMMDD_HHMMSS.png)
+forest.meta3L(result)
+
+# Add annotation columns for raw data
+forest.meta3L(
+  result,
+  ilab     = c("event", "n"),
+  ilab.lab = c("Events", "Total"),
+  file     = NULL
+)
+
+# Save as PDF with an explicit path
+forest.meta3L(result, file = "my_forest.pdf", format = "pdf")
+```
+
+Key arguments:
+
+| Argument      | Description |
+|---------------|-------------|
+| `ilab`        | Character vector of column names to display to the left of the plot |
+| `ilab.lab`    | Display labels for the `ilab` columns |
+| `sortvar`     | Column name to sort rows by |
+| `refline`     | Position of the reference line (default: null value for the measure) |
+| `xlim`        | x-axis limits; auto-computed if `NULL` |
+| `showweights` | Show study weights as a column |
+| `file`        | Output file path (`NULL` = display only, `character(0)` = auto-name) |
+| `format`      | `"png"` (default) or `"pdf"` |
+
+## Subgroup Analysis
+
+Use `moderator()` to test a categorical moderator. It fits a model with a
+fixed effect for the subgroup variable and reports:
+
+- Wald test for the moderator (from `robust()`)
+- Likelihood ratio test comparing models with and without the moderator
+- Per-subgroup pooled estimates on the back-transformed scale
+
+```{r eval=FALSE}
+mod_result <- moderator(result, subgroup = "region")
+print(mod_result)
+```
+
+To visualise subgroup-specific pooled estimates alongside individual studies:
+
+```{r eval=FALSE}
+forest_subgroup.meta3L(result, subgroup = "region", file = NULL)
+```
+
+The subgroup forest plot groups rows by level of `subgroup`, inserts a
+diamond for each group's pooled estimate, and adds an overall diamond at
+the bottom.
+
+## Meta-Regression: Continuous Moderator
+
+`bubble.meta3L()` fits a meta-regression with a continuous moderator and
+draws a bubble plot where bubble sizes are proportional to study precision.
+
+```{r eval=FALSE}
+bub <- bubble.meta3L(result, mod = "year", file = NULL)
+
+# Summary of the meta-regression model
+bub$summary
+# Returns: estimate (back-transformed at mean moderator), CI, R-squared,
+#          slope, robust p-value from clubSandwich
+```
+
+The plot shows the back-transformed regression line with a 95% confidence
+band over the observed range of the moderator.
+
+## Sensitivity Analysis: Leave-One-Out
+
+`meta3l` provides two leave-one-out (LOO) functions that exploit the three-
+level structure:
+
+**Cluster-level LOO** — drop one study (cluster) at a time:
+
+```{r eval=FALSE}
+loo_c <- loo_cluster(result, file = NULL)
+
+# Table of results: one row per dropped study
+loo_c$table
+# Columns: dropped study, k remaining, pooled estimate, CI, I2_total
+```
+
+**Effect-level LOO** — drop one effect size at a time:
+
+```{r eval=FALSE}
+loo_e <- loo_effect(result, file = NULL)
+
+# Table of results: one row per dropped effect size
+loo_e$table
+```
+
+Both functions produce an influence plot (estimate with CI for each leave-
+one-out iteration, reference line at the full-model estimate). Large shifts
+in the pooled estimate or I-squared when a single study is dropped indicate
+that the result is sensitive to that observation and warrants closer
+inspection.
+
+Pass `file = NULL` to display the plot without saving; omit `file` or set
+`file = character(0)` for automatic file naming.
+
+## Working with Excel Data
+
+`read_multisheet_excel()` reads every sheet from a multi-sheet Excel workbook
+and returns a named list of data frames.
+
+```{r eval=FALSE}
+sheets <- read_multisheet_excel("path/to/data.xlsx")
+
+# Returns a named list — one element per sheet
+names(sheets)          # sheet names
+sheets[["Sheet1"]]     # access individual sheet as a data frame
+```
+
+This is useful when effect sizes from different subgroups or outcomes are
+stored on separate worksheets that need to be combined before analysis.
+
+## Summary
+
+The typical meta3l workflow is:
+
+1. **Fit**: `result <- meta3L(dat, slab, event, n, measure)`
+2. **Inspect**: `print(result)` / `summary(result)`
+3. **Visualise**: `forest.meta3L(result)`
+4. **Subgroup**: `moderator(result, subgroup)` + `forest_subgroup.meta3L(result, subgroup)`
+5. **Regression**: `bubble.meta3L(result, mod)`
+6. **Sensitivity**: `loo_cluster(result)` / `loo_effect(result)`
+
+All six effect size measures (`PLO`, `PAS`, `SMD`, `MD`, `RR`, `OR`) follow
+the same workflow — meta3l selects the correct escalc call and applies the
+appropriate back-transformation automatically.
+
+For full argument documentation see `?meta3L`, `?forest.meta3L`,
+`?moderator`, `?bubble.meta3L`, `?loo_cluster`, `?loo_effect`, and
+`?read_multisheet_excel`.
