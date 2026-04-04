@@ -47,6 +47,8 @@ loo_cluster.meta3l_result <- function(x,
                                 format = "png",
                                 width  = NULL,
                                 height = NULL,
+                                title  = x$name,
+                                shade  = "zebra",
                                 ...) {
 
   stopifnot(inherits(x, "meta3l_result"))
@@ -82,7 +84,7 @@ loo_cluster.meta3l_result <- function(x,
       fit_rob <- metafor::robust(fit_loo,
                                  cluster      = dat_loo[[x$cluster]],
                                  clubSandwich = TRUE)
-      i2_loo  <- compute_i2(fit_loo, V_loo)
+      i2_loo  <- compute_i2(fit_loo)
 
       list(omitted    = as.character(cl),
            estimate   = x$transf(fit_rob$b[[1L]]),
@@ -115,8 +117,7 @@ loo_cluster.meta3l_result <- function(x,
   full_fit_i2 <- tryCatch({
     compute_i2(metafor::rma.mv(yi, x$V,
                                random = random_formula,
-                               data   = x$data),
-               x$V)
+                               data   = x$data))
   }, error = function(e) {
     list(between = NA_real_, within = NA_real_, total = NA_real_)
   })
@@ -139,7 +140,7 @@ loo_cluster.meta3l_result <- function(x,
   # -------------------------------------------------------------------
   out_path <- resolve_file(x, file, format, suffix = "loo_cluster")
   n_rows   <- nrow(tbl)
-  dims     <- auto_dims(n_rows, width, height)
+  dims     <- auto_dims(n_rows, width, height, has_wrapped = FALSE)
 
   if (!is.null(out_path)) {
     if (identical(format, "pdf")) {
@@ -153,7 +154,14 @@ loo_cluster.meta3l_result <- function(x,
                      res    = 300L)
     }
     on.exit(grDevices::dev.off(), add = TRUE)
-    .draw_loo_plot(tbl, x$measure, x$cluster)
+    # Use original data range for axis scale (not LOO extremes)
+    orig_yi    <- x$transf(x$data$yi)
+    orig_lb    <- x$transf(x$data$yi - stats::qnorm(0.975) * sqrt(x$data$vi))
+    orig_ub    <- x$transf(x$data$yi + stats::qnorm(0.975) * sqrt(x$data$vi))
+    xlim_ref   <- auto_xlim(x$measure, orig_yi, orig_lb, orig_ub)
+    .draw_loo_plot(tbl, x$measure, x$cluster,
+                   rho = x$rho, group.e = x$group.e, group.c = x$group.c,
+                   shade = shade, xlim_ref = xlim_ref, title = title)
   }
 
   invisible(list(table = tbl, plot_file = out_path))
@@ -171,140 +179,198 @@ loo_cluster.meta3l_result <- function(x,
 #' @param measure Character string; effect size measure for refline/xlim.
 #' @param context Character string; label for annotation (e.g. cluster column).
 #' @keywords internal
-.draw_loo_plot <- function(tbl, measure, context) {
+.draw_loo_plot <- function(tbl, measure, context,
+                          rho = 0.5, group.e = NULL, group.c = NULL,
+                          ilab = NULL, ilab.lab = NULL,
+                          shade = "zebra", xlim_ref = NULL,
+                          title = NULL) {
   n_rows     <- nrow(tbl)
-  study_rows <- seq_len(n_rows - 1L)   # all but "All studies"
-  baseline_r <- n_rows                 # "All studies" row index
+  baseline_r <- n_rows
 
-  # Compute xlim from finite values
   yi_vals <- tbl$estimate
   lb_vals <- tbl$ci.lb
   ub_vals <- tbl$ci.ub
-  xlim    <- auto_xlim(measure, yi_vals, lb_vals, ub_vals)
+  xlim    <- if (!is.null(xlim_ref)) xlim_ref else
+    auto_xlim(measure, yi_vals, lb_vals, ub_vals)
   refline <- auto_refline(measure)
 
-  # Row structure:
-  #   row 1              : header
-  #   rows 2 .. n_rows   : LOO rows
-  #   row n_rows + 1     : blank separator
-  #   row n_rows + 2     : axis
-  header_row  <- 1L
-  data_rows   <- seq(2L, n_rows + 1L)
-  axis_row    <- n_rows + 2L
-  total_rows  <- axis_row
+  n_ilab      <- if (!is.null(ilab)) length(ilab) else 0L
+  ilab_labels <- if (!is.null(ilab.lab)) ilab.lab else ilab
 
-  # Column structure:
-  #   col 1 : label (omitted study)
-  #   col 2 : gap
-  #   col 3 : CI panel
-  #   col 4 : gap
-  #   col 5 : I2 between text
-  #   col 6 : I2 within text
-  #   col 7 : p-value text
+  # Detect intervention / control column groups for pairwise measures
+  has_groups <- FALSE
+  if (measure %in% c("SMD", "MD", "RR", "OR") && n_ilab > 0L) {
+    e_idx <- which(grepl("\\.e$", ilab))
+    c_idx <- which(grepl("\\.c$", ilab))
+    has_groups <- length(e_idx) > 0L && length(c_idx) > 0L
+  }
+  group_offset <- if (has_groups) 1L else 0L
 
+  # Pre-compute wrapped ilab values and per-column widths
+  ilab_wrapped    <- list()
+  ilab_col_widths <- numeric(n_ilab)
+  has_wrapped     <- FALSE
+  if (n_ilab > 0L) {
+    for (j in seq_len(n_ilab)) {
+      if (ilab[j] %in% names(tbl)) {
+        vals <- as.character(tbl[[ilab[j]]])
+      } else {
+        vals <- rep("", n_rows)
+      }
+      ilab_wrapped[[j]] <- wrap_label(vals)
+      if (any(grepl("\n", ilab_wrapped[[j]]))) has_wrapped <- TRUE
+      lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
+      max_data_chars <- max(nchar(lines), na.rm = TRUE)
+      hdr_chars <- nchar(ilab_labels[j])
+      ilab_col_widths[j] <- ilab_col_cm(max(max_data_chars, hdr_chars))
+    }
+  }
+
+  # Row structure (group_offset is 1 when intervention/control headers present)
+  # summary_row sits between column headers and first data row
+  group_row   <- if (has_groups) 1L else NA_integer_
+  header_row  <- 1L + group_offset
+  summary_row <- 2L + group_offset
+  data_rows   <- seq(3L + group_offset, n_rows + 2L + group_offset)
+  axis_row    <- n_rows + 3L + group_offset
+  axis_gap    <- n_rows + 4L + group_offset
+  favours_row <- n_rows + 5L + group_offset
+  title_row   <- n_rows + 6L + group_offset
+  total_rows  <- title_row
+
+  # Column structure (dynamic for ilab)
   label_col  <- 1L
-  gap1_col   <- 2L
-  ci_col     <- 3L
-  gap2_col   <- 4L
-  i2b_col    <- 5L
-  i2w_col    <- 6L
-  pval_col   <- 7L
-  n_cols     <- 7L
+  ilab_cols  <- if (n_ilab > 0L) seq(2L, n_ilab + 1L) else integer(0)
+  gap1_col   <- n_ilab + 2L
+  ci_col     <- n_ilab + 3L
+  gap2_col   <- n_ilab + 4L
+  i2b_col    <- n_ilab + 5L
+  i2w_col    <- n_ilab + 6L
+  pval_col   <- n_ilab + 7L
+  n_cols     <- pval_col
+
+  label_chars <- max(nchar(as.character(tbl$omitted)), nchar("Omitted"), na.rm = TRUE)
+  label_w     <- max(2.5, ilab_col_cm(label_chars))
+  gap_w       <- 0.35
+
+  # Cap CI panel at 40% of total width: ci / (ci + other) <= 0.4
+  # Floor of 5 cm prevents cramping when few columns are present
+  other_cm <- label_w + sum(ilab_col_widths) + 2 * gap_w + 2.2 + 2.2 + 1.5
+  ci_cm    <- max(min(7, other_cm * 2 / 3), 5)
 
   col_units_list <- vector("list", n_cols)
-  col_units_list[[label_col]] <- grid::unit(3.5, "cm")
-  col_units_list[[gap1_col]]  <- grid::unit(0.2, "cm")
-  col_units_list[[ci_col]]    <- grid::unit(1,   "null")
-  col_units_list[[gap2_col]]  <- grid::unit(0.2, "cm")
-  col_units_list[[i2b_col]]   <- grid::unit(1.5, "cm")
-  col_units_list[[i2w_col]]   <- grid::unit(1.5, "cm")
+  col_units_list[[label_col]] <- grid::unit(label_w, "cm")
+  if (n_ilab > 0L) {
+    for (j in seq_len(n_ilab)) col_units_list[[ilab_cols[j]]] <- grid::unit(ilab_col_widths[j], "cm")
+  }
+  col_units_list[[gap1_col]]  <- grid::unit(gap_w, "cm")
+  col_units_list[[ci_col]]    <- grid::unit(ci_cm, "cm")
+  col_units_list[[gap2_col]]  <- grid::unit(gap_w, "cm")
+  col_units_list[[i2b_col]]   <- grid::unit(2.2, "cm")
+  col_units_list[[i2w_col]]   <- grid::unit(2.2, "cm")
   col_units_list[[pval_col]]  <- grid::unit(1.5, "cm")
   col_widths_units <- do.call(grid::unit.c, col_units_list)
 
-  row_height_lines <- 1.2
-  row_heights      <- grid::unit(rep(row_height_lines, total_rows), "lines")
+  row_height_lines <- if (has_wrapped) 1.8 else 1.2
+  rh <- rep(row_height_lines, total_rows)
+  rh[header_row]  <- 1.5
+  rh[summary_row] <- 1.5
+  rh[axis_gap]    <- 1.0
+  row_heights <- grid::unit(rh, "lines")
 
   root_layout <- grid::grid.layout(
-    nrow    = total_rows,
-    ncol    = n_cols,
-    widths  = col_widths_units,
-    heights = row_heights
+    nrow = total_rows, ncol = n_cols,
+    widths = col_widths_units, heights = row_heights
   )
 
   grid::grid.newpage()
-  grid::pushViewport(grid::viewport(layout = root_layout))
+  grid::pushViewport(grid::viewport(
+    layout = root_layout,
+    x = grid::unit(0.4, "cm"), y = grid::unit(0, "npc"),
+    width = grid::unit(1, "npc") - grid::unit(0.4, "cm"),
+    height = grid::unit(1, "npc") - grid::unit(0.4, "cm"),
+    just = c("left", "bottom")
+  ))
 
   push_cell <- function(row, col, xscale = c(0, 1), clip = "off") {
-    grid::pushViewport(
-      grid::viewport(
-        layout.pos.row = row,
-        layout.pos.col = col,
-        xscale         = xscale,
-        clip           = clip
-      )
-    )
+    grid::pushViewport(grid::viewport(
+      layout.pos.row = row, layout.pos.col = col,
+      xscale = xscale, clip = clip
+    ))
   }
-
   push_span <- function(row, col_from, col_to, xscale = c(0, 1), clip = "off") {
-    grid::pushViewport(
-      grid::viewport(
-        layout.pos.row = row,
-        layout.pos.col = col_from:col_to,
-        xscale         = xscale,
-        clip           = clip
-      )
-    )
+    grid::pushViewport(grid::viewport(
+      layout.pos.row = row, layout.pos.col = col_from:col_to,
+      xscale = xscale, clip = clip
+    ))
   }
 
   bold_gp <- grid::gpar(fontface = "bold", cex = 0.75)
   norm_gp <- grid::gpar(cex = 0.75)
+  sm_gp   <- grid::gpar(cex = 0.6)
 
-  # -------------------------------------------------------------------
-  # Header row
-  # -------------------------------------------------------------------
+  # --- Group header (intervention / control) ---
+  if (has_groups) {
+    e_ilab_cols <- ilab_cols[e_idx]
+    c_ilab_cols <- ilab_cols[c_idx]
+    push_span(group_row, min(e_ilab_cols), max(e_ilab_cols))
+    grid::grid.text(if (!is.null(group.e)) group.e else "Intervention",
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+    grid::popViewport()
+    push_span(group_row, min(c_ilab_cols), max(c_ilab_cols))
+    grid::grid.text(if (!is.null(group.c)) group.c else "Control",
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+    grid::popViewport()
+  }
+
+  # --- Header ---
   push_cell(header_row, label_col)
-  grid::grid.text("Omitted", x = grid::unit(0, "npc"), just = "left", gp = bold_gp)
+  grid::grid.text("Omitted", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
   grid::popViewport()
+
+  if (n_ilab > 0L) {
+    for (j in seq_len(n_ilab)) {
+      push_cell(header_row, ilab_cols[j])
+      grid::grid.text(ilab_labels[j], x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+      grid::popViewport()
+    }
+  }
 
   push_cell(header_row, i2b_col)
-  grid::grid.text("I\u00b2_B%", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+  grid::grid.text("I\u00b2 Between", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
   grid::popViewport()
-
   push_cell(header_row, i2w_col)
-  grid::grid.text("I\u00b2_W%", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+  grid::grid.text("I\u00b2 Within", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
   grid::popViewport()
-
   push_cell(header_row, pval_col)
   grid::grid.text("p", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
   grid::popViewport()
 
-  # -------------------------------------------------------------------
-  # Reference line (behind data rows)
-  # -------------------------------------------------------------------
-  if (!is.null(refline) && !is.na(refline) &&
-      refline >= xlim[1] && refline <= xlim[2]) {
-    push_span(data_rows[1]:data_rows[length(data_rows)],
-              ci_col, ci_col,
-              xscale = xlim)
-    grid::grid.segments(
-      x0 = grid::unit(refline, "native"),
-      x1 = grid::unit(refline, "native"),
-      y0 = grid::unit(0, "npc"),
-      y1 = grid::unit(1, "npc"),
-      gp = grid::gpar(lty = "dashed", col = "gray50", lwd = 0.8)
-    )
-    grid::popViewport()
+  # Method summary (in CI column of summary row, just above first data row)
+  push_cell(summary_row, ci_col)
+  grid::grid.text(sprintf("Inverse Variance, %s", measure),
+                  x = grid::unit(0.5, "npc"), y = grid::unit(0.65, "npc"),
+                  just = "centre", gp = bold_gp)
+  grid::grid.text(sprintf("Three-Level, \u03c1 = %.1f", rho),
+                  x = grid::unit(0.5, "npc"), y = grid::unit(0.25, "npc"),
+                  just = "centre", gp = bold_gp)
+  grid::popViewport()
+
+  # --- Shade mask ---
+  if (identical(shade, "cluster")) {
+    labels  <- tbl$omitted[-n_rows]
+    grp_ids <- as.integer(factor(labels, levels = unique(labels)))
+    shade_mask <- c(grp_ids %% 2L == 1L, FALSE)
+  } else {
+    shade_mask <- c(seq_len(n_rows - 1L) %% 2L == 0L, FALSE)
   }
 
-  # -------------------------------------------------------------------
-  # Data rows
-  # -------------------------------------------------------------------
+  # --- Data rows ---
   for (i in seq_len(n_rows)) {
     row_i <- data_rows[i]
     row_d <- tbl[i, ]
 
-    # Zebra shading on even rows
-    if (i %% 2L == 0L) {
+    if (shade_mask[i]) {
       push_span(row_i, label_col, pval_col)
       draw_zebra_rect()
       grid::popViewport()
@@ -313,79 +379,89 @@ loo_cluster.meta3l_result <- function(x,
     # Label
     push_cell(row_i, label_col)
     grid::grid.text(as.character(row_d$omitted),
-                    x    = grid::unit(0, "npc"),
-                    just = "left",
-                    gp   = if (i == n_rows) grid::gpar(cex = 0.75, fontface = "bold") else norm_gp)
+                    x = grid::unit(0.5, "npc"), just = "centre",
+                    gp = if (i == n_rows) grid::gpar(cex = 0.75, fontface = "bold") else norm_gp)
     grid::popViewport()
+
+    # ilab columns
+    if (n_ilab > 0L) {
+      for (j in seq_len(n_ilab)) {
+        push_cell(row_i, ilab_cols[j])
+        grid::grid.text(ilab_wrapped[[j]][i],
+                        x = grid::unit(0.5, "npc"),
+                        y = grid::unit(0.5, "npc"),
+                        just = "centre", gp = sm_gp)
+        grid::popViewport()
+      }
+    }
 
     # CI panel
     push_cell(row_i, ci_col, xscale = xlim, clip = "on")
-
     if (i == n_rows) {
-      # "All studies" baseline: draw diamond
-      if (!is.na(row_d$estimate) &&
-          is.finite(row_d$ci.lb) && is.finite(row_d$ci.ub)) {
+      if (!is.na(row_d$estimate) && is.finite(row_d$ci.lb) && is.finite(row_d$ci.ub))
         draw_diamond(row_d$ci.lb, row_d$estimate, row_d$ci.ub)
-      }
     } else {
-      # LOO row: draw CI line + square
       if (!is.na(row_d$estimate)) {
-        lb_draw <- max(row_d$ci.lb, xlim[1])
-        ub_draw <- min(row_d$ci.ub, xlim[2])
-        draw_ci_line(lb_draw, ub_draw)
-        if (row_d$estimate >= xlim[1] && row_d$estimate <= xlim[2]) {
+        draw_ci_line(max(row_d$ci.lb, xlim[1]), min(row_d$ci.ub, xlim[2]))
+        if (row_d$estimate >= xlim[1] && row_d$estimate <= xlim[2])
           draw_square(row_d$estimate, size = 0.8)
-        }
       }
     }
     grid::popViewport()
 
-    # I2 between
+    # Stats columns
     push_cell(row_i, i2b_col)
-    grid::grid.text(
-      if (is.na(row_d$i2_between)) "NA" else sprintf("%.1f", row_d$i2_between),
-      x    = grid::unit(0.5, "npc"),
-      just = "centre",
-      gp   = norm_gp
-    )
+    grid::grid.text(if (is.na(row_d$i2_between)) "NA" else sprintf("%.1f", row_d$i2_between),
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = norm_gp)
     grid::popViewport()
-
-    # I2 within
     push_cell(row_i, i2w_col)
-    grid::grid.text(
-      if (is.na(row_d$i2_within)) "NA" else sprintf("%.1f", row_d$i2_within),
-      x    = grid::unit(0.5, "npc"),
-      just = "centre",
-      gp   = norm_gp
-    )
+    grid::grid.text(if (is.na(row_d$i2_within)) "NA" else sprintf("%.1f", row_d$i2_within),
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = norm_gp)
     grid::popViewport()
-
-    # p-value
     push_cell(row_i, pval_col)
-    pval_str <- if (is.na(row_d$pval)) {
-      "NA"
-    } else if (row_d$pval < 0.001) {
-      "<.001"
-    } else {
-      sprintf("%.3f", row_d$pval)
-    }
-    grid::grid.text(pval_str,
-                    x    = grid::unit(0.5, "npc"),
-                    just = "centre",
-                    gp   = norm_gp)
+    pval_str <- if (is.na(row_d$pval)) "NA" else if (row_d$pval < 0.001) "<.001" else sprintf("%.3f", row_d$pval)
+    grid::grid.text(pval_str, x = grid::unit(0.5, "npc"), just = "centre", gp = norm_gp)
     grid::popViewport()
   }
 
-  # -------------------------------------------------------------------
-  # Axis row
-  # -------------------------------------------------------------------
-  at_vals <- pretty(xlim, n = 5L)
+  # --- Reference line (on top, solid black) ---
+  if (!is.null(refline) && !is.na(refline) &&
+      refline >= xlim[1] && refline <= xlim[2]) {
+    push_span(data_rows[1]:axis_row, ci_col, ci_col, xscale = xlim)
+    grid::grid.segments(
+      x0 = grid::unit(refline, "native"), x1 = grid::unit(refline, "native"),
+      y0 = grid::unit(0, "npc"), y1 = grid::unit(1, "npc"),
+      gp = grid::gpar(lty = "solid", col = "black", lwd = 0.8)
+    )
+    grid::popViewport()
+  }
+
+  # --- Axis ---
   push_cell(axis_row, ci_col, xscale = xlim, clip = "off")
-  grid::grid.xaxis(at = at_vals, gp = grid::gpar(cex = 0.65))
+  grid::grid.xaxis(at = pretty(xlim, n = 5L), gp = grid::gpar(cex = 0.65))
   grid::popViewport()
 
-  # Pop root layout
-  grid::popViewport()
+  # --- Favours labels ---
+  if (measure %in% c("SMD", "MD", "RR", "OR")) {
+    fav_gp <- grid::gpar(fontface = "bold", cex = 0.75)
+    push_cell(favours_row, ci_col, xscale = xlim, clip = "off")
+    grid::grid.text(paste0("Favours ", if (!is.null(group.c)) group.c else "Control"),
+                    x = grid::unit(0.25, "npc"), just = "centre", gp = fav_gp)
+    grid::grid.text(paste0("Favours ", if (!is.null(group.e)) group.e else "Treatment"),
+                    x = grid::unit(0.75, "npc"), just = "centre", gp = fav_gp)
+    grid::popViewport()
+  }
 
+  # --- Title below favours ---
+  if (!is.null(title) && nzchar(title)) {
+    push_cell(title_row, ci_col)
+    grid::grid.text(title,
+                    x    = grid::unit(0.5, "npc"),
+                    just = "centre",
+                    gp   = grid::gpar(fontface = "bold", cex = 0.85))
+    grid::popViewport()
+  }
+
+  grid::popViewport()
   invisible(NULL)
 }

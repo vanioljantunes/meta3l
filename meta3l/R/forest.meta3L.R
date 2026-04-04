@@ -72,7 +72,9 @@ forest.meta3L <- function(x,
                           xlim        = NULL,
                           at          = NULL,
                           xlab        = NULL,
+                          title       = x$name,
                           showweights = TRUE,
+                          shade       = "zebra",
                           colshade    = rgb(0.92, 0.92, 0.92),
                           squaresize  = 1,
                           file        = character(0),
@@ -123,6 +125,15 @@ forest.meta3L <- function(x,
   n_ilab      <- if (!is.null(ilab)) length(ilab) else 0L
   ilab_labels <- if (!is.null(ilab.lab)) ilab.lab else ilab
 
+  # Detect intervention / control column groups for pairwise measures
+  has_groups <- FALSE
+  if (x$measure %in% c("SMD", "MD", "RR", "OR") && n_ilab > 0L) {
+    e_idx <- which(grepl("\\.e$", ilab))
+    c_idx <- which(grepl("\\.c$", ilab))
+    has_groups <- length(e_idx) > 0L && length(c_idx) > 0L
+  }
+  group_offset <- if (has_groups) 1L else 0L
+
   # -------------------------------------------------------------------
   # 5. Compute text for right panel
   # -------------------------------------------------------------------
@@ -144,47 +155,41 @@ forest.meta3L <- function(x,
   # -------------------------------------------------------------------
   # 6. Resolve file path and open device
   # -------------------------------------------------------------------
-  out_file <- resolve_file(x, file, format)
-  dims     <- auto_dims(n_studies, width, height)
-
-  if (!is.null(out_file)) {
-    if (identical(format, "pdf")) {
-      grDevices::pdf(out_file,
-                     width  = dims$width  / 300,
-                     height = dims$height / 300)
-    } else {
-      grDevices::png(out_file,
-                     width  = dims$width,
-                     height = dims$height,
-                     res    = 300L)
+  # Pre-compute wrapped ilab values and per-column widths
+  ilab_wrapped    <- list()
+  ilab_col_widths <- numeric(n_ilab)
+  has_wrapped     <- FALSE
+  if (n_ilab > 0L) {
+    for (j in seq_len(n_ilab)) {
+      vals <- as.character(x$data[[ilab[j]]])
+      ilab_wrapped[[j]] <- wrap_label(vals)
+      if (any(grepl("\n", ilab_wrapped[[j]]))) has_wrapped <- TRUE
+      lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
+      max_data_chars <- max(nchar(lines), na.rm = TRUE)
+      hdr_chars <- nchar(ilab_labels[j])
+      ilab_col_widths[j] <- ilab_col_cm(max(max_data_chars, hdr_chars))
     }
-  } else {
-    # Display-only: open a null PDF device for drawing
-    grDevices::pdf(nullfile(),
-                   width  = dims$width  / 300,
-                   height = dims$height / 300)
   }
-  on.exit(grDevices::dev.off(), add = TRUE)
+
+  out_file <- resolve_file(x, file, format, suffix = "forest")
 
   # -------------------------------------------------------------------
   # 7. Build grid layout
   # -------------------------------------------------------------------
   grid::grid.newpage()
 
-  # Row structure:
-  #   row 1            : header
-  #   rows 2 .. n+1    : studies
-  #   row n+2          : blank separator
-  #   row n+3          : pooled diamond
-  #   row n+4          : mlab (I2 annotation)
-  #   row n+5          : x-axis  (+1 if xlab present)
-  header_row  <- 1L
-  study_rows  <- seq(2L, n_studies + 1L)
-  blank_row   <- n_studies + 2L
-  pooled_row  <- n_studies + 3L
-  mlab_row    <- n_studies + 4L
-  axis_row    <- n_studies + 5L
-  total_rows  <- if (!is.null(xlab)) n_studies + 6L else n_studies + 5L
+  # Row structure (group_offset is 1 when intervention/control headers present)
+  # summary_row sits between column headers and first study row
+  group_row   <- if (has_groups) 1L else NA_integer_
+  header_row  <- 1L + group_offset
+  summary_row <- 2L + group_offset
+  study_rows  <- seq(3L + group_offset, n_studies + 2L + group_offset)
+  pooled_row  <- n_studies + 3L + group_offset
+  axis_row    <- n_studies + 4L + group_offset
+  axis_gap    <- n_studies + 5L + group_offset
+  favours_row <- n_studies + 6L + group_offset
+  title_row   <- n_studies + 7L + group_offset
+  total_rows  <- n_studies + 7L + group_offset
 
   # Column structure:
   #   col 1          : studlab
@@ -204,18 +209,22 @@ forest.meta3L <- function(x,
   results_col <- if (showweights) n_ilab + 6L else n_ilab + 5L
   n_cols      <- results_col
 
-  # Fixed widths for non-CI columns (in cm)
-  studlab_w  <- 3.5
-  ilab_w     <- 1.5   # per ilab column
-  weight_w   <- 1.0
-  gap_w      <- 0.2
-  results_w  <- 3.5
+  # Content-adaptive widths (in cm)
+  studlab_chars <- max(nchar(as.character(slab_vals)), nchar("Study"), na.rm = TRUE)
+  studlab_w  <- max(2.5, ilab_col_cm(studlab_chars))
+  weight_w   <- 1.2
+  gap_w      <- 0.35
+  results_chars <- max(nchar(study_text), nchar(pooled_text),
+                       nchar(paste0(x$measure, " [95% CI]")), na.rm = TRUE)
+  results_w  <- ilab_col_cm(results_chars)
 
   # CI panel takes remaining space
   col_widths_cm <- numeric(n_cols)
   col_widths_cm[studlab_col] <- studlab_w
   if (n_ilab > 0L) {
-    col_widths_cm[ilab_cols] <- ilab_w
+    for (j in seq_len(n_ilab)) {
+      col_widths_cm[ilab_cols[j]] <- ilab_col_widths[j]
+    }
   }
   if (showweights) {
     col_widths_cm[weight_col] <- weight_w
@@ -223,20 +232,57 @@ forest.meta3L <- function(x,
   col_widths_cm[gap1_col]    <- gap_w
   col_widths_cm[gap2_col]    <- gap_w
   col_widths_cm[results_col] <- results_w
-  # CI panel: fill remaining (use NULL = 1fr analogue via relative units)
-  # We express everything in cm except the CI panel which gets "1null"
+
+  # Cap CI panel at 40% of total width: ci / (ci + other) <= 0.4
+  # Floor of 5 cm prevents cramping when few columns are present
+  other_cm <- sum(col_widths_cm)
+  ci_cm    <- max(min(7, other_cm * 2 / 3), 5)
+
   col_units_list <- vector("list", n_cols)
   for (j in seq_len(n_cols)) {
     if (j == ci_col) {
-      col_units_list[[j]] <- grid::unit(1, "null")
+      col_units_list[[j]] <- grid::unit(ci_cm, "cm")
     } else {
       col_units_list[[j]] <- grid::unit(col_widths_cm[j], "cm")
     }
   }
   col_widths_units <- do.call(grid::unit.c, col_units_list)
 
-  row_height_lines <- 1.2
-  row_heights <- grid::unit(rep(row_height_lines, total_rows), "lines")
+  row_height_lines <- if (has_wrapped) 1.8 else 1.2
+  rh <- rep(row_height_lines, total_rows)
+  rh[header_row]  <- 1.5
+  rh[summary_row] <- 1.5
+  rh[axis_gap]    <- 1.0
+  row_heights <- grid::unit(rh, "lines")
+
+  # -------------------------------------------------------------------
+  # 7b. Open graphics device (after column widths are known)
+  # -------------------------------------------------------------------
+  ilab_cm  <- sum(ilab_col_widths)
+  total_cm <- studlab_w + ilab_cm +
+    (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w
+  auto_w   <- as.integer(total_cm * 300 / 2.54) + 300L
+  dims     <- auto_dims(n_studies, width, height,
+                         has_wrapped = has_wrapped)
+  if (is.null(width)) dims$width <- max(dims$width, auto_w)
+
+  if (!is.null(out_file)) {
+    if (identical(format, "pdf")) {
+      grDevices::pdf(out_file,
+                     width  = dims$width  / 300,
+                     height = dims$height / 300)
+    } else {
+      grDevices::png(out_file,
+                     width  = dims$width,
+                     height = dims$height,
+                     res    = 300L)
+    }
+  } else {
+    grDevices::pdf(nullfile(),
+                   width  = dims$width  / 300,
+                   height = dims$height / 300)
+  }
+  on.exit(grDevices::dev.off(), add = TRUE)
 
   root_layout <- grid::grid.layout(
     nrow    = total_rows,
@@ -244,7 +290,14 @@ forest.meta3L <- function(x,
     widths  = col_widths_units,
     heights = row_heights
   )
-  grid::pushViewport(grid::viewport(layout = root_layout))
+  grid::pushViewport(grid::viewport(
+    layout = root_layout,
+    x      = grid::unit(0.4, "cm"),
+    y      = grid::unit(0, "npc"),
+    width  = grid::unit(1, "npc") - grid::unit(0.4, "cm"),
+    height = grid::unit(1, "npc") - grid::unit(0.4, "cm"),
+    just   = c("left", "bottom")
+  ))
 
   # Helper: push a layout viewport cell
   push_cell <- function(row, col,
@@ -275,14 +328,32 @@ forest.meta3L <- function(x,
   }
 
   # -------------------------------------------------------------------
-  # 8. Draw header row
+  # 7b. Draw method summary (two lines, centred above plot)
+  # -------------------------------------------------------------------
+  # 7c. Draw group header row (intervention / control)
   # -------------------------------------------------------------------
   bold_gp  <- grid::gpar(fontface = "bold", cex = 0.75)
 
+  if (has_groups) {
+    e_ilab_cols <- ilab_cols[e_idx]
+    c_ilab_cols <- ilab_cols[c_idx]
+    push_span(group_row, min(e_ilab_cols), max(e_ilab_cols))
+    grid::grid.text(if (!is.null(x$group.e)) x$group.e else "Intervention",
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+    grid::popViewport()
+    push_span(group_row, min(c_ilab_cols), max(c_ilab_cols))
+    grid::grid.text(if (!is.null(x$group.c)) x$group.c else "Control",
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+    grid::popViewport()
+  }
+
+  # -------------------------------------------------------------------
+  # 8. Draw header row
+  # -------------------------------------------------------------------
   push_cell(header_row, studlab_col)
   grid::grid.text("Study",
-                  x    = grid::unit(0, "npc"),
-                  just = "left",
+                  x    = grid::unit(0.5, "npc"),
+                  just = "centre",
                   gp   = bold_gp)
   grid::popViewport()
 
@@ -307,40 +378,47 @@ forest.meta3L <- function(x,
   }
 
   push_cell(header_row, results_col)
-  grid::grid.text("Estimate [95% CI]",
-                  x    = grid::unit(0, "npc"),
-                  just = "left",
+  grid::grid.text(paste0(x$measure, " [95% CI]"),
+                  x    = grid::unit(0.5, "npc"),
+                  just = "centre",
                   gp   = bold_gp)
   grid::popViewport()
 
-  # -------------------------------------------------------------------
-  # 9. Draw reference line (behind study data)
-  # -------------------------------------------------------------------
-  if (!is.null(refline_final) && !is.na(refline_final)) {
-    if (refline_final >= xlim_final[1] && refline_final <= xlim_final[2]) {
-      push_span(study_rows[1]:pooled_row, ci_col, ci_col,
-                xscale = xlim_final)
-      grid::grid.segments(
-        x0 = grid::unit(refline_final, "native"),
-        x1 = grid::unit(refline_final, "native"),
-        y0 = grid::unit(0, "npc"),
-        y1 = grid::unit(1, "npc"),
-        gp = grid::gpar(lty = "dashed", col = "gray50", lwd = 0.8)
-      )
-      grid::popViewport()
-    }
-  }
+  # Method summary (in CI column of summary row, just above first study)
+  method_gp <- grid::gpar(fontface = "bold", cex = 0.75)
+  push_cell(summary_row, ci_col)
+  grid::grid.text(sprintf("Inverse Variance, %s", x$measure),
+                  x    = grid::unit(0.5, "npc"),
+                  y    = grid::unit(0.65, "npc"),
+                  just = "centre",
+                  gp   = method_gp)
+  grid::grid.text(sprintf("Three-Level, \u03c1 = %.1f", x$rho),
+                  x    = grid::unit(0.5, "npc"),
+                  y    = grid::unit(0.25, "npc"),
+                  just = "centre",
+                  gp   = method_gp)
+  grid::popViewport()
 
   # -------------------------------------------------------------------
-  # 10. Draw study rows
+  # 9. Draw study rows
   # -------------------------------------------------------------------
   norm_gp <- grid::gpar(cex = 0.75)
+
+  # Pre-compute shade mask
+  if (identical(shade, "cluster")) {
+    clust_vals <- x$data[[x$cluster]]
+    if (!is.null(sortvar)) clust_vals <- clust_vals[order(x$data[[sortvar]])]
+    clust_ids  <- as.integer(factor(clust_vals, levels = unique(clust_vals)))
+    shade_mask <- clust_ids %% 2L == 1L
+  } else {
+    shade_mask <- seq_len(n_studies) %% 2L == 0L
+  }
 
   for (i in seq_len(n_studies)) {
     row_i <- study_rows[i]
 
-    # Zebra shading: shade even-indexed rows (i = 2, 4, ...)
-    if (i %% 2L == 0L) {
+    # Row shading
+    if (shade_mask[i]) {
       push_span(row_i, studlab_col, results_col)
       draw_zebra_rect(colshade)
       grid::popViewport()
@@ -349,8 +427,8 @@ forest.meta3L <- function(x,
     # Study label
     push_cell(row_i, studlab_col)
     grid::grid.text(as.character(slab_vals[i]),
-                    x    = grid::unit(0, "npc"),
-                    just = "left",
+                    x    = grid::unit(0.5, "npc"),
+                    just = "centre",
                     gp   = norm_gp)
     grid::popViewport()
 
@@ -358,13 +436,11 @@ forest.meta3L <- function(x,
     if (n_ilab > 0L) {
       for (j in seq_len(n_ilab)) {
         push_cell(row_i, ilab_cols[j])
-        val <- x$data[[ilab[j]]]
-        if (!is.null(sortvar)) {
-          ord_data <- order(x$data[[sortvar]])
-          val <- val[ord_data]
-        }
-        grid::grid.text(as.character(val[i]),
+        wrapped <- ilab_wrapped[[j]]
+        if (!is.null(sortvar)) wrapped <- wrapped[order(x$data[[sortvar]])]
+        grid::grid.text(wrapped[i],
                         x    = grid::unit(0.5, "npc"),
+                        y    = grid::unit(0.5, "npc"),
                         just = "centre",
                         gp   = norm_gp)
         grid::popViewport()
@@ -424,23 +500,24 @@ forest.meta3L <- function(x,
     # Results text
     push_cell(row_i, results_col)
     grid::grid.text(study_text[i],
-                    x    = grid::unit(0, "npc"),
-                    just = "left",
+                    x    = grid::unit(0.5, "npc"),
+                    just = "centre",
                     gp   = norm_gp)
     grid::popViewport()
   }
 
   # -------------------------------------------------------------------
-  # 11. Draw pooled row (diamond)
+  # 11. Draw pooled row (diamond + I2 on same row)
   # -------------------------------------------------------------------
   row_p <- pooled_row
 
-  # Pooled label
-  push_cell(row_p, studlab_col)
-  grid::grid.text("Random effects model",
+  # Pooled label + I2 on the same row
+  overall_label <- paste0("Overall  ", mlab)
+  push_span(row_p, studlab_col, gap1_col)
+  grid::grid.text(overall_label,
                   x    = grid::unit(0, "npc"),
                   just = "left",
-                  gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+                  gp   = grid::gpar(cex = 0.65, fontface = "bold"))
   grid::popViewport()
 
   # Diamond in CI panel
@@ -451,24 +528,31 @@ forest.meta3L <- function(x,
   # Pooled estimate text
   push_cell(row_p, results_col)
   grid::grid.text(pooled_text,
-                  x    = grid::unit(0, "npc"),
-                  just = "left",
+                  x    = grid::unit(0.5, "npc"),
+                  just = "centre",
                   gp   = grid::gpar(cex = 0.75, fontface = "bold"))
   grid::popViewport()
 
   # -------------------------------------------------------------------
-  # 12. Draw mlab row
+  # 11b. Draw reference line (on top of data, solid black)
   # -------------------------------------------------------------------
-  mlab_col_to <- if (n_ilab > 0L) max(ilab_cols) else studlab_col
-  push_span(mlab_row, studlab_col, mlab_col_to)
-  grid::grid.text(mlab,
-                  x    = grid::unit(0, "npc"),
-                  just = "left",
-                  gp   = grid::gpar(cex = 0.65, fontface = "italic"))
-  grid::popViewport()
+  if (!is.null(refline_final) && !is.na(refline_final)) {
+    if (refline_final >= xlim_final[1] && refline_final <= xlim_final[2]) {
+      push_span(study_rows[1]:axis_row, ci_col, ci_col,
+                xscale = xlim_final)
+      grid::grid.segments(
+        x0 = grid::unit(refline_final, "native"),
+        x1 = grid::unit(refline_final, "native"),
+        y0 = grid::unit(0, "npc"),
+        y1 = grid::unit(1, "npc"),
+        gp = grid::gpar(lty = "solid", col = "black", lwd = 0.8)
+      )
+      grid::popViewport()
+    }
+  }
 
   # -------------------------------------------------------------------
-  # 13. Draw axis row
+  # 12. Draw axis row (immediately after diamond)
   # -------------------------------------------------------------------
   at_final <- if (!is.null(at)) at else pretty(xlim_final, n = 5L)
   push_cell(axis_row, ci_col, xscale = xlim_final, clip = "off")
@@ -476,14 +560,36 @@ forest.meta3L <- function(x,
                    gp = grid::gpar(cex = 0.65))
   grid::popViewport()
 
-  # Optional x-axis label
-  if (!is.null(xlab) && total_rows > (n_studies + 5L)) {
-    xlab_row <- n_studies + 6L
-    push_cell(xlab_row, ci_col)
-    grid::grid.text(xlab,
+  # -------------------------------------------------------------------
+  # 13. Favours labels
+  # -------------------------------------------------------------------
+  if (x$measure %in% c("SMD", "MD", "RR", "OR")) {
+    fav_left  <- paste0("Favours ",
+                        if (!is.null(x$group.c)) x$group.c else "Control")
+    fav_right <- paste0("Favours ",
+                        if (!is.null(x$group.e)) x$group.e else "Treatment")
+    fav_gp <- grid::gpar(fontface = "bold", cex = 0.75)
+    push_cell(favours_row, ci_col, xscale = xlim_final, clip = "off")
+    grid::grid.text(fav_left,
+                    x    = grid::unit(0.25, "npc"),
+                    just = "centre",
+                    gp   = fav_gp)
+    grid::grid.text(fav_right,
+                    x    = grid::unit(0.75, "npc"),
+                    just = "centre",
+                    gp   = fav_gp)
+    grid::popViewport()
+  }
+
+  # -------------------------------------------------------------------
+  # 13b. Title below favours
+  # -------------------------------------------------------------------
+  if (!is.null(title) && nzchar(title)) {
+    push_cell(title_row, ci_col)
+    grid::grid.text(title,
                     x    = grid::unit(0.5, "npc"),
                     just = "centre",
-                    gp   = grid::gpar(cex = 0.7))
+                    gp   = grid::gpar(fontface = "bold", cex = 0.85))
     grid::popViewport()
   }
 

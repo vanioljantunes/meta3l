@@ -2,23 +2,22 @@
 % Please edit documentation in R/utils.R
 \name{compute_i2}
 \alias{compute_i2}
-\title{Compute multilevel I-squared via P-matrix projection}
+\title{Compute multilevel I-squared via diagonal precision matrix}
 \usage{
-compute_i2(fit, V)
+compute_i2(fit)
 }
 \arguments{
 \item{fit}{An \code{rma.mv} object returned by \code{metafor::rma.mv()}.}
-
-\item{V}{The variance-covariance matrix passed to \code{rma.mv()} (the
-output of \code{metafor::vcalc()}). Must be non-singular.}
 }
 \value{
 A named list with elements \code{total}, \code{between}, and
   \code{within}, each a numeric percentage (0-100).
 }
 \description{
-Uses the precision-matrix (P-matrix) method from the metafor documentation
+Uses the method from the metafor documentation
 (\url{https://www.metafor-project.org/doku.php/tips:i2_multilevel_multivariate})
-to decompose I-squared into between-study and within-study components.
+and Nakagawa & Santos (2012) to decompose I-squared into between-cluster
+and within-cluster components.  Uses \code{diag(1/vi)} as the weight matrix,
+which is the recommended approach for multilevel/multivariate models.
 }
 \keyword{internal}

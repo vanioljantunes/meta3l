@@ -11,6 +11,9 @@ meta3L(
   cluster = "studlab",
   rho = 0.5,
   transf = NULL,
+  direction = NULL,
+  group.e = NULL,
+  group.c = NULL,
   event = NULL,
   n = NULL,
   event.e = NULL,
@@ -60,6 +63,24 @@ identifies study clusters (level 3).  Defaults to \code{"studlab"}.}
 \item{transf}{Optional function to back-transform the pooled estimate and
 confidence limits.  If \code{NULL} (default), the transformation is
 resolved automatically from \code{measure}.}
+
+\item{direction}{Character string naming the column in \code{data} that
+indicates outcome direction (\code{"Good"} or \code{"Bad"}).  For
+\code{measure = "SMD"} or \code{"MD"}, rows where this column equals
+\code{"Bad"} (case-insensitive) have their computed effect size
+(\code{yi}) multiplied by \code{-1}, so that positive values consistently
+favour the experimental group.  If \code{NULL} (default), the function
+auto-detects a column named \code{"direction"} in the data when all its
+non-NA values are \code{"Good"} or \code{"Bad"}.}
+
+\item{group.e}{Character string; label for the experimental (treatment)
+group.  If \code{NULL} (default), the function looks for a column named
+\code{"group.e"} in \code{data} and extracts the unique value.  Stored in
+the result for use by forest plot axis labels.}
+
+\item{group.c}{Character string; label for the control group.  If
+\code{NULL} (default), auto-detects from a column named \code{"group.c"}
+in \code{data}.}
 
 \item{event}{Character string; column name for the event count (single
 group).  Required for \code{measure = "PLO"} and \code{measure = "PAS"}
@@ -180,6 +201,8 @@ An object of class \code{"meta3l_result"}, a named list with the
     \item{ci.lb}{Back-transformed lower 95\% confidence limit.}
     \item{ci.ub}{Back-transformed upper 95\% confidence limit.}
     \item{name}{The \code{name} argument as supplied (or \code{NULL}).}
+    \item{group.e}{Experimental group label (or \code{NULL}).}
+    \item{group.c}{Control group label (or \code{NULL}).}
   }
 }
 \description{

@@ -160,10 +160,12 @@ resolve_file <- function(x, file, format, suffix = "") {
 #' @return A named list with elements \code{width} and \code{height}.
 #'
 #' @keywords internal
-auto_dims <- function(n, user_w = NULL, user_h = NULL) {
+auto_dims <- function(n, user_w = NULL, user_h = NULL, n_ilab = 0L,
+                      has_wrapped = FALSE) {
+  row_px <- if (has_wrapped) 120L else 80L
   list(
-    width  = if (!is.null(user_w)) user_w else 3000L,
-    height = if (!is.null(user_h)) user_h else max(800L, 200L + n * 80L)
+    width  = if (!is.null(user_w)) user_w else 3000L + as.integer(n_ilab) * 200L,
+    height = if (!is.null(user_h)) user_h else max(900L, 400L + n * row_px)
   )
 }
 
@@ -250,9 +252,93 @@ auto_refline <- function(measure) {
 #' @keywords internal
 format_mlab <- function(i2) {
   sprintf(
-    "RE Model  |  I\u00b2 = %.0f%% (between: %.0f%%, within: %.0f%%)",
+    "I\u00b2 = %.0f%% (between: %.0f%%, within: %.0f%%)",
     i2$total,
     i2$between,
     i2$within
   )
+}
+
+# ---------------------------------------------------------------------------
+# Text wrapping for ilab columns
+# ---------------------------------------------------------------------------
+
+#' Wrap long text at the closest space or parenthesis to the midpoint (internal)
+#'
+#' @param txt Character vector of labels to wrap.
+#' @param max_chars Integer; strings longer than this are split into two lines.
+#' @return Character vector with \code{"\\n"} inserted at the split point.
+#' @keywords internal
+wrap_label <- function(txt, max_chars = 15L) {
+  vapply(as.character(txt), function(t) {
+    if (is.na(t)) return("")
+    if (nchar(t) <= max_chars) return(t)
+    mid <- nchar(t) / 2
+    pos <- gregexpr("[ (]", t)[[1L]]
+    if (pos[1L] == -1L) return(t)
+    best <- pos[which.min(abs(pos - mid))]
+    ch <- substr(t, best, best)
+    if (ch == "(") {
+      paste0(trimws(substr(t, 1L, best - 1L)), "\n", substr(t, best, nchar(t)))
+    } else {
+      paste0(substr(t, 1L, best - 1L), "\n", substr(t, best + 1L, nchar(t)))
+    }
+  }, character(1L), USE.NAMES = FALSE)
+}
+
+# ---------------------------------------------------------------------------
+# Abbreviation extraction for questionnaire / scale names
+# ---------------------------------------------------------------------------
+
+#' Extract abbreviation from questionnaire or scale names
+#'
+#' Searches for an existing all-uppercase abbreviation token (e.g.
+#' \code{"SRS"}, \code{"CBCL"}, \code{"PEP-3"}) in the text.  If none is
+#' found, strips parenthesized descriptors and builds an acronym from the
+#' first letters of significant words (excluding common articles and
+#' prepositions).
+#'
+#' @param txt Character vector of scale / questionnaire names.
+#' @return Character vector of abbreviations, same length as \code{txt}.
+#'
+#' @examples
+#' extract_abbrev(c(
+#'   "Aberrant Behavior Checklist (raw score)",
+#'   "Social Responsiveness Scale SRS (T-score)",
+#'   "CBCL (Child Behavior Checklist) T-score",
+#'   "PEP-3"
+#' ))
+#' # => c("ABC", "SRS", "CBCL", "PEP-3")
+#'
+#' @export
+extract_abbrev <- function(txt) {
+  vapply(as.character(txt), function(t) {
+    if (is.na(t) || nchar(t) == 0L) return("")
+    # Look for existing all-caps abbreviation (2+ uppercase letters,
+    # optionally followed by hyphens/digits, e.g. "SRS", "CBCL", "PEP-3")
+    m <- regmatches(t, gregexpr("[A-Z][A-Z0-9][-A-Z0-9]*", t))[[1L]]
+    if (length(m) > 0L) return(m[which.max(nchar(m))])
+    # Strip parenthesized content and trailing whitespace
+    clean <- trimws(gsub("\\([^)]*\\)", "", t))
+    # Acronym from first letters of significant words
+    words <- strsplit(clean, "\\s+")[[1L]]
+    skip  <- c("the", "of", "for", "and", "in", "a", "an", "to", "with", "by")
+    words <- words[!tolower(words) %in% skip]
+    if (length(words) == 0L) return(t)
+    paste0(toupper(substr(words, 1L, 1L)), collapse = "")
+  }, character(1L), USE.NAMES = FALSE)
+}
+
+# ---------------------------------------------------------------------------
+# Column width helper
+# ---------------------------------------------------------------------------
+
+#' Compute ilab column width from character count (internal)
+#'
+#' @param max_chars Integer; maximum character count across all wrapped lines
+#'   in the column (including the header label).
+#' @return Numeric; column width in cm.
+#' @keywords internal
+ilab_col_cm <- function(max_chars) {
+  max(1.2, max_chars * 0.13 + 0.3)
 }

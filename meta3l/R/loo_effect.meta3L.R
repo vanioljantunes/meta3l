@@ -47,6 +47,10 @@ loo_effect.meta3l_result <- function(x,
                                       format = "png",
                                       width  = NULL,
                                       height = NULL,
+                                      title  = x$name,
+                                      ilab     = NULL,
+                                      ilab.lab = NULL,
+                                      shade    = "zebra",
                                       ...) {
 
   stopifnot(inherits(x, "meta3l_result"))
@@ -80,7 +84,7 @@ loo_effect.meta3l_result <- function(x,
       fit_rob <- metafor::robust(fit_loo,
                                  cluster      = dat_loo[[x$cluster]],
                                  clubSandwich = TRUE)
-      i2_loo  <- compute_i2(fit_loo, V_loo)
+      i2_loo  <- compute_i2(fit_loo)
 
       list(omitted    = .loo_effect_label(x, i),
            estimate   = x$transf(fit_rob$b[[1L]]),
@@ -111,8 +115,7 @@ loo_effect.meta3l_result <- function(x,
   full_fit_i2 <- tryCatch({
     compute_i2(metafor::rma.mv(yi, x$V,
                                random = random_formula,
-                               data   = x$data),
-               x$V)
+                               data   = x$data))
   }, error = function(e) {
     list(between = NA_real_, within = NA_real_, total = NA_real_)
   })
@@ -131,11 +134,32 @@ loo_effect.meta3l_result <- function(x,
   rownames(tbl) <- NULL
 
   # -------------------------------------------------------------------
+  # 3b. Attach ilab columns to table (if present in data)
+  # -------------------------------------------------------------------
+  n_ilab <- 0L
+  if (!is.null(ilab)) {
+    ilab_avail <- ilab[ilab %in% names(x$data)]
+    for (col in ilab_avail) {
+      tbl[[col]] <- c(as.character(x$data[[col]]), "")
+    }
+    n_ilab <- length(ilab_avail)
+    if (is.null(ilab.lab)) ilab.lab <- ilab_avail
+  }
+
+  # -------------------------------------------------------------------
   # 4. Resolve file and open device
   # -------------------------------------------------------------------
   out_path <- resolve_file(x, file, format, suffix = "loo_effect")
   n_rows   <- nrow(tbl)
-  dims     <- auto_dims(n_rows, width, height)
+  # Check if wrapping will occur for height calculation
+  has_wrapped_loo <- FALSE
+  if (n_ilab > 0L) {
+    for (col in ilab_avail) {
+      if (any(nchar(as.character(tbl[[col]])) > 15L)) has_wrapped_loo <- TRUE
+    }
+  }
+  dims     <- auto_dims(n_rows, width, height, n_ilab = n_ilab,
+                         has_wrapped = has_wrapped_loo)
 
   if (!is.null(out_path)) {
     if (identical(format, "pdf")) {
@@ -149,7 +173,14 @@ loo_effect.meta3l_result <- function(x,
                      res    = 300L)
     }
     on.exit(grDevices::dev.off(), add = TRUE)
-    .draw_loo_plot(tbl, x$measure, x$cluster)
+    orig_yi    <- x$transf(x$data$yi)
+    orig_lb    <- x$transf(x$data$yi - stats::qnorm(0.975) * sqrt(x$data$vi))
+    orig_ub    <- x$transf(x$data$yi + stats::qnorm(0.975) * sqrt(x$data$vi))
+    xlim_ref   <- auto_xlim(x$measure, orig_yi, orig_lb, orig_ub)
+    .draw_loo_plot(tbl, x$measure, x$cluster,
+                   rho = x$rho, group.e = x$group.e, group.c = x$group.c,
+                   ilab = ilab, ilab.lab = ilab.lab, shade = shade,
+                   xlim_ref = xlim_ref, title = title)
   }
 
   invisible(list(table = tbl, plot_file = out_path))
@@ -166,10 +197,9 @@ loo_effect.meta3l_result <- function(x,
 #' @return A character string label of the form "StudyLabel [i]".
 #' @keywords internal
 .loo_effect_label <- function(x, i) {
-  slab_val <- if (!is.null(x$slab) && x$slab %in% names(x$data)) {
+  if (!is.null(x$slab) && x$slab %in% names(x$data)) {
     as.character(x$data[[x$slab]][i])
   } else {
     paste0("Row_", i)
   }
-  paste0(slab_val, " [", i, "]")
 }
