@@ -105,20 +105,20 @@ validate_columns <- function(data, measure, col_args, slab, cluster) {
 }
 
 
-#' Compute multilevel I-squared via P-matrix projection
+#' Compute multilevel I-squared via diagonal precision matrix
 #'
-#' Uses the precision-matrix (P-matrix) method from the metafor documentation
+#' Uses the method from the metafor documentation
 #' (\url{https://www.metafor-project.org/doku.php/tips:i2_multilevel_multivariate})
-#' to decompose I-squared into between-study and within-study components.
+#' and Nakagawa & Santos (2012) to decompose I-squared into between-cluster
+#' and within-cluster components.  Uses \code{diag(1/vi)} as the weight matrix,
+#' which is the recommended approach for multilevel/multivariate models.
 #'
 #' @param fit An \code{rma.mv} object returned by \code{metafor::rma.mv()}.
-#' @param V The variance-covariance matrix passed to \code{rma.mv()} (the
-#'   output of \code{metafor::vcalc()}). Must be non-singular.
 #' @return A named list with elements \code{total}, \code{between}, and
 #'   \code{within}, each a numeric percentage (0-100).
 #' @keywords internal
-compute_i2 <- function(fit, V) {
-  W <- solve(V)
+compute_i2 <- function(fit) {
+  W <- diag(1 / fit$vi, nrow = length(fit$vi))
   X <- model.matrix(fit)
   P <- W - W %*% X %*% solve(t(X) %*% W %*% X) %*% t(X) %*% W
   denom <- sum(fit$sigma2) + (fit$k - fit$p) / sum(diag(P))

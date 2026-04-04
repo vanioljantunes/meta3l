@@ -18,6 +18,7 @@ forest_subgroup(x, ...)
   xlim = NULL,
   at = NULL,
   xlab = NULL,
+  title = x$name,
   showweights = TRUE,
   colshade = rgb(0.92, 0.92, 0.92),
   squaresize = 1,

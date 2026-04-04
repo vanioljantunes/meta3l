@@ -126,6 +126,21 @@ META_COL_MAP <- list(
 #'   Currently reserved for future use.
 #' @param sdi Character string; column name for a single-group standard
 #'   deviation.  Currently reserved for future use.
+#' @param direction Character string naming the column in \code{data} that
+#'   indicates outcome direction (\code{"Good"} or \code{"Bad"}).  For
+#'   \code{measure = "SMD"} or \code{"MD"}, rows where this column equals
+#'   \code{"Bad"} (case-insensitive) have their computed effect size
+#'   (\code{yi}) multiplied by \code{-1}, so that positive values consistently
+#'   favour the experimental group.  If \code{NULL} (default), the function
+#'   auto-detects a column named \code{"direction"} in the data when all its
+#'   non-NA values are \code{"Good"} or \code{"Bad"}.
+#' @param group.e Character string; label for the experimental (treatment)
+#'   group.  If \code{NULL} (default), the function looks for a column named
+#'   \code{"group.e"} in \code{data} and extracts the unique value.  Stored in
+#'   the result for use by forest plot axis labels.
+#' @param group.c Character string; label for the control group.  If
+#'   \code{NULL} (default), auto-detects from a column named \code{"group.c"}
+#'   in \code{data}.
 #' @param name Character string; optional name for the analysis (e.g., the
 #'   Excel sheet name). Used by \code{forest.meta3L()} for default output
 #'   filenames. Defaults to \code{NULL}.
@@ -150,6 +165,8 @@ META_COL_MAP <- list(
 #'     \item{ci.lb}{Back-transformed lower 95\% confidence limit.}
 #'     \item{ci.ub}{Back-transformed upper 95\% confidence limit.}
 #'     \item{name}{The \code{name} argument as supplied (or \code{NULL}).}
+#'     \item{group.e}{Experimental group label (or \code{NULL}).}
+#'     \item{group.c}{Control group label (or \code{NULL}).}
 #'   }
 #'
 #' @export
@@ -181,6 +198,9 @@ meta3L <- function(data,
                    cluster  = "studlab",
                    rho      = 0.5,
                    transf   = NULL,
+                   direction = NULL,
+                   group.e  = NULL,
+                   group.c  = NULL,
                    # --- Meta-style column names (preferred) ---
                    event    = NULL,
                    n        = NULL,
@@ -385,6 +405,31 @@ meta3L <- function(data,
   dat <- do.call(metafor::escalc, escalc_args)
   dat$TE_id <- seq_len(nrow(dat))
 
+  # --- 7b. Direction harmonisation (SMD/MD only) ------------------------------
+  if (measure %in% c("SMD", "MD")) {
+    dir_col <- direction
+    if (is.null(dir_col) && "direction" %in% names(dat)) {
+      dir_vals <- tolower(trimws(dat[["direction"]]))
+      dir_vals <- dir_vals[!is.na(dir_vals)]
+      if (length(dir_vals) > 0L && all(dir_vals %in% c("good", "bad"))) {
+        dir_col <- "direction"
+      }
+    }
+    if (!is.null(dir_col)) {
+      if (!dir_col %in% names(dat)) {
+        stop("Direction column '", dir_col, "' not found in data.",
+             call. = FALSE)
+      }
+      dir_vals <- tolower(trimws(dat[[dir_col]]))
+      bad <- !is.na(dir_vals) & dir_vals == "bad"
+      n_flipped <- sum(bad)
+      if (n_flipped > 0L) {
+        dat$yi[bad] <- -dat$yi[bad]
+        message(n_flipped, " effect size(s) flipped (direction = 'Bad').")
+      }
+    }
+  }
+
   # --- 8. Build variance-covariance matrix -----------------------------------
   V <- metafor::vcalc(
     vi      = dat$vi,
@@ -408,12 +453,26 @@ meta3L <- function(data,
                                 clubSandwich  = TRUE)
 
   # --- 12. I-squared via P-matrix projection ----------------------------------
-  i2 <- compute_i2(res, V)
+  i2 <- compute_i2(res)
 
   # --- 13. Back-transform pooled estimate and CI from robust model ------------
   estimate <- transf_fn(res_robust$b[[1L]])
   ci_lb    <- transf_fn(res_robust$ci.lb)
   ci_ub    <- transf_fn(res_robust$ci.ub)
+
+  # --- 13b. Resolve group labels -----------------------------------------------
+  grp_e <- group.e
+  grp_c <- group.c
+  if (is.null(grp_e) && "group.e" %in% names(dat)) {
+    vals <- unique(dat[["group.e"]])
+    vals <- vals[!is.na(vals)]
+    if (length(vals) > 0L) grp_e <- vals[1L]
+  }
+  if (is.null(grp_c) && "group.c" %in% names(dat)) {
+    vals <- unique(dat[["group.c"]])
+    vals <- vals[!is.na(vals)]
+    if (length(vals) > 0L) grp_c <- vals[1L]
+  }
 
   # --- 14. Construct S3 result object -----------------------------------------
   structure(
@@ -431,8 +490,10 @@ meta3L <- function(data,
       estimate = estimate,
       ci.lb    = ci_lb,
       ci.ub    = ci_ub,
-      name     = name
+      name     = name,
+      group.e  = grp_e,
+      group.c  = grp_c
     ),
-    class = "meta3l_result"
+    class = c("meta3l_result", "meta3L")
   )
 }

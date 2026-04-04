@@ -10,6 +10,9 @@
   format = "png",
   width = NULL,
   height = NULL,
+  ilab = NULL,
+  ilab.lab = NULL,
+  shade = "zebra",
   ...
 )
 }

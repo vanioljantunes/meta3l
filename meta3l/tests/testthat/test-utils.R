@@ -66,7 +66,7 @@ test_that("compute_i2 returns list with total, between, within components", {
   V <- metafor::vcalc(data = dat, cluster = dat$studlab, obs = dat$TE_id,
                       vi = dat$vi, rho = 0.5)
   fit <- metafor::rma.mv(yi, V, random = ~ 1 | studlab / TE_id, data = dat)
-  result <- compute_i2(fit, V)
+  result <- compute_i2(fit)
   expect_type(result, "list")
   expect_named(result, c("total", "between", "within"))
   expect_true(is.numeric(result$total))
@@ -86,6 +86,6 @@ test_that("compute_i2: between + within equals total within tolerance", {
   V <- metafor::vcalc(data = dat, cluster = dat$studlab, obs = dat$TE_id,
                       vi = dat$vi, rho = 0.5)
   fit <- metafor::rma.mv(yi, V, random = ~ 1 | studlab / TE_id, data = dat)
-  result <- compute_i2(fit, V)
+  result <- compute_i2(fit)
   expect_equal(result$between + result$within, result$total, tolerance = 1e-10)
 })
