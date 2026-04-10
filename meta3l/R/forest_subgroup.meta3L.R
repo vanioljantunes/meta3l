@@ -66,6 +66,7 @@ forest_subgroup <- function(x, ...) UseMethod("forest_subgroup")
 forest_subgroup.meta3L <- function(x,
                                    subgroup,
                                    overall     = TRUE,
+                                   qtest       = overall,
                                    ilab        = NULL,
                                    ilab.lab    = NULL,
                                    sortvar     = NULL,
@@ -103,6 +104,29 @@ forest_subgroup.meta3L <- function(x,
 
   # Preserve original subgroup order
   levels_vec <- unique(dat[[subgroup]])
+
+  # Single subgroup level: fall back to regular forest plot
+  if (length(levels_vec) == 1L) {
+    fpath <- resolve_file(x, file, format,
+                          suffix = paste0("subgroup_", subgroup))
+    return(forest.meta3L(x,
+                         ilab        = ilab,
+                         ilab.lab    = ilab.lab,
+                         sortvar     = sortvar,
+                         refline     = refline,
+                         xlim        = xlim,
+                         at          = at,
+                         xlab        = xlab,
+                         title       = title,
+                         showweights = showweights,
+                         shade       = shade,
+                         colshade    = colshade,
+                         squaresize  = squaresize,
+                         file        = fpath,
+                         format      = format,
+                         width       = width,
+                         height      = height))
+  }
 
   # Apply sortvar within each subgroup (sort entire dataset by subgroup + sortvar)
   if (!is.null(sortvar) && sortvar %in% names(dat)) {
@@ -189,7 +213,7 @@ forest_subgroup.meta3L <- function(x,
     if (is.null(fit_g) || n_clust < 2L) {
       if (n_clust < 2L) {
         warning("Subgroup '", gv, "' has fewer than 2 clusters; ",
-                "fitting two-level model. Diamond skipped.",
+                "fitting two-level model.",
                 call. = FALSE)
       }
       fit_fallback <- tryCatch(
@@ -231,43 +255,45 @@ forest_subgroup.meta3L <- function(x,
       lb       = lb_g,
       ub       = ub_g,
       pval     = pval_g,
-      has_diamond = (n_clust >= 2L && !is.null(fit_g))
+      has_diamond = (!is.null(rob_g) && k_g >= 2L)
     )
   }
 
   # -------------------------------------------------------------------
-  # 4. Omnibus Q-test
+  # 4. Omnibus Q-test (only when qtest = TRUE)
   # -------------------------------------------------------------------
   qtest_text <- ""
-  tryCatch({
-    mod_formula <- stats::as.formula(
-      paste0("~ 1 | ", cluster, " / TE_id")
-    )
-    mods_formula <- stats::as.formula(
-      paste0("~ factor(", subgroup, ")")
-    )
-    res_mod <- tryCatch(
-      metafor::rma.mv(yi, V,
-                      mods   = mods_formula,
-                      random = mod_formula,
-                      data   = dat),
-      error = function(e) {
-        tryCatch(
-          metafor::rma.mv(yi, V,
-                          mods    = mods_formula,
-                          random  = mod_formula,
-                          data    = dat,
-                          control = list(optimizer = "bobyqa")),
-          error = function(e2) NULL
-        )
+  if (qtest) {
+    tryCatch({
+      mod_formula <- stats::as.formula(
+        paste0("~ 1 | ", cluster, " / TE_id")
+      )
+      mods_formula <- stats::as.formula(
+        paste0("~ factor(", subgroup, ")")
+      )
+      res_mod <- tryCatch(
+        metafor::rma.mv(yi, V,
+                        mods   = mods_formula,
+                        random = mod_formula,
+                        data   = dat),
+        error = function(e) {
+          tryCatch(
+            metafor::rma.mv(yi, V,
+                            mods    = mods_formula,
+                            random  = mod_formula,
+                            data    = dat,
+                            control = list(optimizer = "bobyqa")),
+            error = function(e2) NULL
+          )
+        }
+      )
+      if (!is.null(res_mod)) {
+        qtest_text <- sprintf("Test for subgroup differences: p-value = %.3f", res_mod$QMp)
       }
-    )
-    if (!is.null(res_mod)) {
-      qtest_text <- sprintf("Test for subgroup differences: p = %.3f", res_mod$QMp)
-    }
-  }, error = function(e) {
-    qtest_text <<- ""
-  })
+    }, error = function(e) {
+      qtest_text <<- ""
+    })
+  }
 
   # -------------------------------------------------------------------
   # 5. Compute row layout
@@ -284,7 +310,8 @@ forest_subgroup.meta3L <- function(x,
   }
   group_offset <- if (has_groups) 1L else 0L
 
-  n_total_rows <- 2L + group_offset   # [group header] + column header + method summary row
+  n_total_rows <- 1L + group_offset   # [group header] + column header
+  diamond_rows <- integer(0)          # track diamond row indices for sizing
 
   # Per-subgroup rows
   for (gi in seq_along(levels_vec)) {
@@ -294,6 +321,7 @@ forest_subgroup.meta3L <- function(x,
     n_total_rows <- n_total_rows + sg$k        # study rows
     if (sg$has_diamond) {
       n_total_rows <- n_total_rows + 1L        # subgroup diamond
+      diamond_rows <- c(diamond_rows, n_total_rows)
     }
     if (gi < length(levels_vec)) {
       n_total_rows <- n_total_rows + 1L        # blank separator (not after last)
@@ -303,16 +331,14 @@ forest_subgroup.meta3L <- function(x,
   if (overall) {
     n_total_rows <- n_total_rows + 1L          # blank separator before overall
     n_total_rows <- n_total_rows + 1L          # overall diamond (+ I2 on same row)
+    diamond_rows <- c(diamond_rows, n_total_rows)
   }
-  n_total_rows <- n_total_rows + 1L            # x-axis
+  n_total_rows <- n_total_rows + 1L            # x-axis (Q-test shares this row)
   if (measure %in% c("SMD", "MD", "RR", "OR")) {
     n_total_rows <- n_total_rows + 1L          # favours labels
   }
   if (!is.null(title) && nzchar(title)) {
     n_total_rows <- n_total_rows + 1L          # title row
-  }
-  if (nchar(qtest_text) > 0L) {
-    n_total_rows <- n_total_rows + 1L          # Q-test (below axis)
   }
   if (!is.null(xlab)) {
     n_total_rows <- n_total_rows + 1L          # x-axis label
@@ -344,12 +370,14 @@ forest_subgroup.meta3L <- function(x,
   ci_col      <- if (showweights) n_ilab + 4L else n_ilab + 3L
   gap2_col    <- if (showweights) n_ilab + 5L else n_ilab + 4L
   results_col <- if (showweights) n_ilab + 6L else n_ilab + 5L
-  n_cols      <- results_col
+  pval_col    <- results_col + 1L
+  n_cols      <- pval_col
 
   studlab_chars <- max(nchar(as.character(slab_vals)), nchar("Study"), na.rm = TRUE)
   studlab_w  <- max(2.5, ilab_col_cm(studlab_chars))
   weight_w   <- 1.2
-  gap_w      <- 0.35
+  gap_w      <- 0.5
+  pval_w     <- 1.8
   results_chars <- max(nchar(sprintf("%.2f [%.2f; %.2f]", yi_bt, ci_lb_bt, ci_ub_bt)),
                        nchar("Estimate [95% CI]"), na.rm = TRUE)
   results_w  <- ilab_col_cm(results_chars)
@@ -365,11 +393,11 @@ forest_subgroup.meta3L <- function(x,
   col_widths_cm[gap1_col]    <- gap_w
   col_widths_cm[gap2_col]    <- gap_w
   col_widths_cm[results_col] <- results_w
+  col_widths_cm[pval_col]    <- pval_w
 
-  # Cap CI panel at 40% of total width: ci / (ci + other) <= 0.4
-  # Floor of 5 cm prevents cramping when few columns are present
+  # Cap CI panel: floor 4 cm, ceiling so CI <= 35% of total width
   other_cm <- sum(col_widths_cm)
-  ci_cm    <- max(min(7, other_cm * 2 / 3), 5)
+  ci_cm    <- max(min(6, other_cm * 0.54), 4)
 
   col_units_list <- vector("list", n_cols)
   for (j in seq_len(n_cols)) {
@@ -397,7 +425,7 @@ forest_subgroup.meta3L <- function(x,
                          has_wrapped = has_wrapped)
   ilab_cm  <- sum(ilab_col_widths)
   total_cm <- studlab_w + ilab_cm +
-    (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w
+    (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w + pval_w
   auto_w   <- as.integer(total_cm * 300 / 2.54) + 300L
   if (is.null(width)) dims$width <- max(dims$width, auto_w)
 
@@ -426,8 +454,8 @@ forest_subgroup.meta3L <- function(x,
 
   row_height_lines <- if (has_wrapped) 1.8 else 1.2
   rh <- rep(row_height_lines, n_total_rows)
-  rh[1L + group_offset] <- 1.5   # header row
-  rh[2L + group_offset] <- 1.5   # method summary row (just above first study)
+  rh[1L + group_offset] <- 1.5   # header row (includes method summary)
+  if (length(diamond_rows) > 0L) rh[diamond_rows] <- 2.0
   row_heights <- grid::unit(rh, "lines")
 
   root_layout <- grid::grid.layout(
@@ -490,10 +518,11 @@ forest_subgroup.meta3L <- function(x,
   }
 
   # -------------------------------------------------------------------
-  # 10b. Column header row
+  # 10b. Column header row (with method summary in CI column)
   # -------------------------------------------------------------------
   push_cell(current_row, studlab_col)
-  grid::grid.text("Study", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+  grid::grid.text("Study", x = grid::unit(0.5, "npc"),
+                  just = "centre", gp = bold_gp)
   grid::popViewport()
 
   if (n_ilab > 0L) {
@@ -517,16 +546,20 @@ forest_subgroup.meta3L <- function(x,
                   just = "centre", gp = bold_gp)
   grid::popViewport()
 
-  current_row <- current_row + 1L
+  push_cell(current_row, pval_col)
+  grid::grid.text("p-value", x = grid::unit(0.5, "npc"),
+                  just = "centre", gp = bold_gp)
+  grid::popViewport()
 
-  # Method summary (in CI column of summary row, just above first study)
+  # Method summary (in CI column of header row)
+  method_gp <- grid::gpar(fontface = "bold", cex = 0.65)
   push_cell(current_row, ci_col)
   grid::grid.text(sprintf("Inverse Variance, %s", measure),
                   x = grid::unit(0.5, "npc"), y = grid::unit(0.65, "npc"),
-                  just = "centre", gp = bold_gp)
+                  just = "centre", gp = method_gp)
   grid::grid.text(sprintf("Three-Level, \u03c1 = %.1f", x$rho),
-                  x = grid::unit(0.5, "npc"), y = grid::unit(0.25, "npc"),
-                  just = "centre", gp = bold_gp)
+                  x = grid::unit(0.5, "npc"), y = grid::unit(0.3, "npc"),
+                  just = "centre", gp = method_gp)
   grid::popViewport()
 
   current_row <- current_row + 1L
@@ -567,7 +600,7 @@ forest_subgroup.meta3L <- function(x,
 
     # ---- Subgroup header row ----
     draw_ov_line(current_row)
-    push_span(current_row, studlab_col, results_col)
+    push_span(current_row, studlab_col, pval_col)
     grid::grid.text(as.character(gv),
                     x    = grid::unit(0, "npc"),
                     just = "left",
@@ -583,7 +616,7 @@ forest_subgroup.meta3L <- function(x,
 
       # Row shading
       if (shade_mask[global_i]) {
-        push_span(row_i, studlab_col, results_col)
+        push_span(row_i, studlab_col, pval_col)
         draw_zebra_rect(colshade)
         grid::popViewport()
       }
@@ -683,25 +716,58 @@ forest_subgroup.meta3L <- function(x,
       current_row <- current_row + 1L
     }  # end study rows for this subgroup
 
-    # ---- Subgroup diamond row (only if 2+ clusters) ----
+    # ---- Subgroup diamond row (only if 2+ observations) ----
     if (sg$has_diamond && !is.na(sg$est)) {
       row_d <- current_row
 
-      # Subgroup label — span across text columns + CI
-      push_span(row_d, studlab_col, ci_col)
-      i2_label <- sprintf("k = %d  |  I\u00b2 = %.0f%% (between: %.0f%%, within: %.0f%%)",
-                          sg$k,
-                          sg$i2$total,
-                          sg$i2$between,
-                          sg$i2$within)
-      if (measure %in% c("SMD", "MD", "RR", "OR") && !is.na(sg$pval)) {
-        i2_label <- paste0(i2_label, sprintf("; p = %.3f", sg$pval))
-      }
-      grid::grid.text(i2_label,
+      # "Subgroup" label + I2 spanning studlab to gap1 (left-aligned)
+      sg_mlab <- sprintf("k = %d | I\u00b2 = %.0f%% (btw: %.0f%%, wth: %.0f%%)",
+                         sg$n_clust, sg$i2$total,
+                         sg$i2$between, sg$i2$within)
+      push_span(row_d, studlab_col, gap1_col)
+      grid::grid.text("Subgroup",
                       x    = grid::unit(0, "npc"),
+                      y    = grid::unit(0.65, "npc"),
+                      just = "left",
+                      gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+      grid::grid.text(sg_mlab,
+                      x    = grid::unit(0, "npc"),
+                      y    = grid::unit(0.25, "npc"),
                       just = "left",
                       gp   = grid::gpar(cex = 0.65, fontface = "italic"))
       grid::popViewport()
+
+      # Aggregated ilab values for this subgroup
+      if (n_ilab > 0L) {
+        sg_data    <- dat[idx, , drop = FALSE]
+        sg_cluster <- sg_data[[cluster]]
+        for (j in seq_len(n_ilab)) {
+          sg_col <- sg_data[[ilab[j]]]
+          agg <- aggregate_ilab_col(sg_col, ilab[j], sg_cluster,
+                                    data = sg_data)
+          if (nzchar(agg)) {
+            push_cell(row_d, ilab_cols[j])
+            grid::grid.text(agg,
+                            x    = grid::unit(0.5, "npc"),
+                            y    = grid::unit(0.65, "npc"),
+                            just = "centre",
+                            gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+            grid::popViewport()
+          }
+        }
+      }
+
+      # Subgroup weight percentage
+      if (showweights) {
+        sg_weight_pct <- sum(w_pct[idx])
+        push_cell(row_d, weight_col)
+        grid::grid.text(sprintf("%.1f%%", sg_weight_pct),
+                        x    = grid::unit(0.5, "npc"),
+                        y    = grid::unit(0.65, "npc"),
+                        just = "centre",
+                        gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+        grid::popViewport()
+      }
 
       # Overall estimate vertical line (behind diamond)
       draw_ov_line(row_d)
@@ -712,20 +778,35 @@ forest_subgroup.meta3L <- function(x,
         draw_diamond(
           max(sg$lb, xlim_final[1]),
           min(max(sg$est, xlim_final[1]), xlim_final[2]),
-          min(sg$ub, xlim_final[2])
+          min(sg$ub, xlim_final[2]),
+          y_center = 0.65
         )
         grid::popViewport()
       }
 
       # Estimate text
+      sg_result_text <- sprintf("%.2f [%.2f; %.2f]", sg$est, sg$lb, sg$ub)
       push_cell(row_d, results_col)
       grid::grid.text(
-        sprintf("%.2f [%.2f; %.2f]", sg$est, sg$lb, sg$ub),
+        sg_result_text,
         x    = grid::unit(0.5, "npc"),
+        y    = grid::unit(0.65, "npc"),
         just = "centre",
         gp   = grid::gpar(cex = 0.75, fontface = "bold")
       )
       grid::popViewport()
+
+      # p-value column
+      if (!is.na(sg$pval)) {
+        sg_pval_str <- if (sg$pval < 0.001) "<0.001" else sprintf("%.4f", sg$pval)
+        push_cell(row_d, pval_col)
+        grid::grid.text(sg_pval_str,
+                        x    = grid::unit(0.5, "npc"),
+                        y    = grid::unit(0.65, "npc"),
+                        just = "centre",
+                        gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+        grid::popViewport()
+      }
 
       current_row <- current_row + 1L
     }
@@ -747,28 +828,73 @@ forest_subgroup.meta3L <- function(x,
 
     row_ov <- current_row
 
-    # Overall label + I2 on the same row
-    overall_label <- paste0("Overall  ", format_mlab(x$i2))
+    # "Overall" + I2 spanning studlab to gap1 (left-aligned)
     push_span(row_ov, studlab_col, gap1_col)
-    grid::grid.text(overall_label,
+    grid::grid.text("Overall",
                     x    = grid::unit(0, "npc"),
+                    y    = grid::unit(0.65, "npc"),
                     just = "left",
-                    gp   = grid::gpar(cex = 0.65, fontface = "bold"))
+                    gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+    grid::grid.text(format_mlab(x$i2),
+                    x    = grid::unit(0, "npc"),
+                    y    = grid::unit(0.25, "npc"),
+                    just = "left",
+                    gp   = grid::gpar(cex = 0.65, fontface = "italic"))
     grid::popViewport()
+
+    # Aggregated ilab values for overall
+    if (n_ilab > 0L) {
+      all_cluster <- dat[[cluster]]
+      for (j in seq_len(n_ilab)) {
+        all_col <- dat[[ilab[j]]]
+        agg <- aggregate_ilab_col(all_col, ilab[j], all_cluster,
+                                  data = dat)
+        if (nzchar(agg)) {
+          push_cell(row_ov, ilab_cols[j])
+          grid::grid.text(agg,
+                          x    = grid::unit(0.5, "npc"),
+                          y    = grid::unit(0.65, "npc"),
+                          just = "centre",
+                          gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+          grid::popViewport()
+        }
+      }
+    }
+
+    # Overall weight (100%)
+    if (showweights) {
+      push_cell(row_ov, weight_col)
+      grid::grid.text("100.0%",
+                      x    = grid::unit(0.5, "npc"),
+                      y    = grid::unit(0.65, "npc"),
+                      just = "centre",
+                      gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+      grid::popViewport()
+    }
 
     draw_ov_line(row_ov)
 
     push_cell(row_ov, ci_col, xscale = xlim_final, clip = "on")
-    draw_diamond(x$ci.lb, x$estimate, x$ci.ub)
+    draw_diamond(x$ci.lb, x$estimate, x$ci.ub, y_center = 0.65)
     grid::popViewport()
 
     ov_text <- sprintf("%.2f [%.2f; %.2f]", x$estimate, x$ci.lb, x$ci.ub)
-    if (measure %in% c("SMD", "MD", "RR", "OR")) {
-      ov_text <- paste0(ov_text, sprintf("; p = %.4f", x$model$pval))
-    }
     push_cell(row_ov, results_col)
     grid::grid.text(ov_text,
                     x    = grid::unit(0.5, "npc"),
+                    y    = grid::unit(0.65, "npc"),
+                    just = "centre",
+                    gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+    grid::popViewport()
+
+    # Overall p-value column
+    pval_ov <- x$model$pval
+    pval_ov_str <- if (is.na(pval_ov)) "" else
+      if (pval_ov < 0.001) "<0.001" else sprintf("%.4f", pval_ov)
+    push_cell(row_ov, pval_col)
+    grid::grid.text(pval_ov_str,
+                    x    = grid::unit(0.5, "npc"),
+                    y    = grid::unit(0.65, "npc"),
                     just = "centre",
                     gp   = grid::gpar(cex = 0.75, fontface = "bold"))
     grid::popViewport()
@@ -778,6 +904,7 @@ forest_subgroup.meta3L <- function(x,
 
   # -------------------------------------------------------------------
   # 14. X-axis row (immediately after overall diamond)
+  #     Q-test text shares this row in the text columns
   # -------------------------------------------------------------------
   at_final <- if (!is.null(at)) at else pretty(xlim_final, n = 5L)
   # Extend overall estimate line into the axis row (top half only)
@@ -819,6 +946,17 @@ forest_subgroup.meta3L <- function(x,
     }
   }
   grid::popViewport()
+
+  # Q-test text in the text columns of the axis row
+  if (nchar(qtest_text) > 0L) {
+    push_span(current_row, studlab_col, gap1_col)
+    grid::grid.text(qtest_text,
+                    x    = grid::unit(0, "npc"),
+                    just = "left",
+                    gp   = grid::gpar(cex = 0.65, fontface = "bold"))
+    grid::popViewport()
+  }
+
   current_row <- current_row + 1L
 
   # -------------------------------------------------------------------
@@ -856,18 +994,7 @@ forest_subgroup.meta3L <- function(x,
     current_row <- current_row + 1L
   }
 
-  # -------------------------------------------------------------------
-  # 15c. Q-test footer
-  # -------------------------------------------------------------------
-  if (nchar(qtest_text) > 0L) {
-    push_span(current_row, studlab_col, gap1_col)
-    grid::grid.text(qtest_text,
-                    x    = grid::unit(0, "npc"),
-                    just = "left",
-                    gp   = grid::gpar(cex = 0.65, fontface = "italic"))
-    grid::popViewport()
-    current_row <- current_row + 1L
-  }
+  # (Q-test drawn in axis row text columns)
 
   if (!is.null(xlab)) {
     push_cell(current_row, ci_col)

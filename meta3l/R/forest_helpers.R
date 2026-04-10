@@ -44,11 +44,11 @@ draw_square <- function(x_pos, size, col = "black", col_border = "black") {
 #' @param col_border Character; border colour.  Defaults to \code{"black"}.
 #'
 #' @keywords internal
-draw_diamond <- function(lb, est, ub, hh = 0.35,
+draw_diamond <- function(lb, est, ub, hh = 0.35, y_center = 0.5,
                          col = "darkgray", col_border = "black") {
   grid::grid.polygon(
     x  = grid::unit(c(lb, est, ub, est), "native"),
-    y  = grid::unit(c(0.5, 0.5 + hh, 0.5, 0.5 - hh), "npc"),
+    y  = grid::unit(c(y_center, y_center + hh, y_center, y_center - hh), "npc"),
     gp = grid::gpar(fill = col, col = col_border)
   )
 }
@@ -257,6 +257,76 @@ format_mlab <- function(i2) {
     i2$between,
     i2$within
   )
+}
+
+# ---------------------------------------------------------------------------
+# Aggregate ilab column for pooled/summary rows
+# ---------------------------------------------------------------------------
+
+#' Aggregate a numeric ilab column for display on a summary row (internal)
+#'
+#' Sample-size and event columns are summed once per cluster.
+#' Mean columns are weighted-averaged by corresponding n.
+#' SD columns are pooled using the standard pooled-SD formula.
+#' Non-numeric columns return an empty string.
+#'
+#' @param values  Vector of column values (subset of rows to aggregate).
+#' @param col_name Character; column name used to determine aggregation type.
+#' @param cluster Vector of cluster identifiers (same length as \code{values}).
+#' @param data    Data frame (same rows as \code{values}); needed for mean/SD
+#'   aggregation to look up the corresponding n column.
+#' @return A character string suitable for display.
+#' @keywords internal
+aggregate_ilab_col <- function(values, col_name, cluster, data = NULL) {
+  if (!is.numeric(values)) return("")
+  if (length(values) == 0L || all(is.na(values))) return("")
+
+  is_n     <- grepl("^n[._]|^n$|^ni$|total", col_name, ignore.case = TRUE)
+  is_event <- grepl("^xi$|^event", col_name, ignore.case = TRUE)
+  is_mean  <- grepl("^mean[._]", col_name, ignore.case = TRUE)
+  is_sd    <- grepl("^sd[._]", col_name, ignore.case = TRUE)
+
+  uclust <- unique(cluster)
+
+  if (is_n || is_event) {
+    # Sum first value per cluster
+    total <- 0
+    for (cl in uclust) total <- total + values[cluster == cl][1L]
+    return(as.character(as.integer(total)))
+  }
+
+  if (is_mean && !is.null(data)) {
+    n_col <- sub("^mean", "n", col_name)
+    if (n_col %in% names(data)) {
+      n_vals <- data[[n_col]]
+      sum_wm <- 0; sum_n <- 0
+      for (cl in uclust) {
+        mask <- cluster == cl
+        sum_wm <- sum_wm + values[mask][1L] * n_vals[mask][1L]
+        sum_n  <- sum_n  + n_vals[mask][1L]
+      }
+      if (sum_n > 0) return(sprintf("%.1f", sum_wm / sum_n))
+    }
+    return("")
+  }
+
+  if (is_sd && !is.null(data)) {
+    n_col <- sub("^sd", "n", col_name)
+    if (n_col %in% names(data)) {
+      n_vals <- data[[n_col]]
+      sum_var <- 0; sum_df <- 0
+      for (cl in uclust) {
+        mask <- cluster == cl
+        s <- values[mask][1L]; n <- n_vals[mask][1L]
+        sum_var <- sum_var + (n - 1) * s^2
+        sum_df  <- sum_df  + (n - 1)
+      }
+      if (sum_df > 0) return(sprintf("%.1f", sqrt(sum_var / sum_df)))
+    }
+    return("")
+  }
+
+  return("")
 }
 
 # ---------------------------------------------------------------------------
