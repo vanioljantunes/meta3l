@@ -172,7 +172,7 @@ bubble.meta3L <- function(x, mod, file = character(0),
 
   # --- 15. Draw plot ----------------------------------------------------------
   # Extra bottom margin for summary table text
-  old_par <- par(mar = c(7, 4, 3, 2))
+  old_par <- par(mar = c(7, 5, 3, 2))
   on.exit(par(old_par), add = TRUE)
 
   # Scatter with back-transformed yi
@@ -181,9 +181,18 @@ bubble.meta3L <- function(x, mod, file = character(0),
     cex  = cex_b,
     pch  = 21,
     bg   = grDevices::rgb(0.4, 0.4, 0.4, 0.5),
+    xlab = "",
+    ylab = "",
+    main = "",
+    axes = TRUE
+  )
+
+  # Bold, larger axis labels
+  graphics::title(
     xlab = mod,
     ylab = "Effect size",
-    main = ""
+    cex.lab  = 1.4,
+    font.lab = 2
   )
 
   # CI band polygon
@@ -201,15 +210,28 @@ bubble.meta3L <- function(x, mod, file = character(0),
   main_title <- if (!is.null(title)) title else paste("Meta-regression:", mod)
   graphics::title(main = main_title)
 
-  # Robust p-value annotation (top-right)
-  graphics::mtext(
-    sprintf("Robust p = %.4f", pval),
-    side = 3, adj = 1, cex = 0.9
+  # Legend
+  graphics::legend(
+    "topright",
+    legend = c("Study (size proportional to weight)",
+               "Regression line",
+               "95% CI band"),
+    pch    = c(21, NA, 15),
+    pt.cex = c(1.8, NA, 2),
+    pt.bg  = c(grDevices::rgb(0.4, 0.4, 0.4, 0.5),
+               NA,
+               grDevices::rgb(0.7, 0.85, 1, 0.4)),
+    lty    = c(NA, 1, NA),
+    lwd    = c(NA, 2, NA),
+    col    = c("black", "darkblue", grDevices::rgb(0.7, 0.85, 1, 0.4)),
+    cex    = 0.85,
+    bg     = "white",
+    box.lty = 1
   )
 
   # Summary table in bottom margin
   summary_text <- sprintf(
-    "Estimate: %.3f [%.3f, %.3f]  |  R\u00b2 = %.1f%%  |  p = %.4f",
+    "Estimate: %.3f [%.3f, %.3f]  |  R\u00b2 = %.1f%%  |  p-value = %.4f",
     est, ci_lb, ci_ub, r2 * 100, pval
   )
   graphics::mtext(summary_text, side = 1, line = 5, cex = 0.85)

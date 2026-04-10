@@ -158,7 +158,8 @@ loo_effect.meta3l_result <- function(x,
       if (any(nchar(as.character(tbl[[col]])) > 15L)) has_wrapped_loo <- TRUE
     }
   }
-  dims     <- auto_dims(n_rows, width, height, n_ilab = n_ilab,
+  # header + data rows + axis + favours + title = n_rows + 4
+  dims     <- auto_dims(n_rows + 4L, width, height, n_ilab = n_ilab,
                          has_wrapped = has_wrapped_loo)
 
   if (!is.null(out_path)) {
@@ -177,10 +178,16 @@ loo_effect.meta3l_result <- function(x,
     orig_lb    <- x$transf(x$data$yi - stats::qnorm(0.975) * sqrt(x$data$vi))
     orig_ub    <- x$transf(x$data$yi + stats::qnorm(0.975) * sqrt(x$data$vi))
     xlim_ref   <- auto_xlim(x$measure, orig_yi, orig_lb, orig_ub)
+    loo_title <- if (!is.null(title) && nzchar(title)) {
+      paste0(title, "\nLeave-One-Out by Effect")
+    } else {
+      "Leave-One-Out by Effect"
+    }
     .draw_loo_plot(tbl, x$measure, x$cluster,
                    rho = x$rho, group.e = x$group.e, group.c = x$group.c,
                    ilab = ilab, ilab.lab = ilab.lab, shade = shade,
-                   xlim_ref = xlim_ref, title = title)
+                   xlim_ref = xlim_ref, title = loo_title,
+                   orig_data = x$data, orig_cluster = x$cluster)
   }
 
   invisible(list(table = tbl, plot_file = out_path))

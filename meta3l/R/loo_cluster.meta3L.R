@@ -140,7 +140,8 @@ loo_cluster.meta3l_result <- function(x,
   # -------------------------------------------------------------------
   out_path <- resolve_file(x, file, format, suffix = "loo_cluster")
   n_rows   <- nrow(tbl)
-  dims     <- auto_dims(n_rows, width, height, has_wrapped = FALSE)
+  # header + data rows + axis + favours + title = n_rows + 4
+  dims     <- auto_dims(n_rows + 4L, width, height, has_wrapped = FALSE)
 
   if (!is.null(out_path)) {
     if (identical(format, "pdf")) {
@@ -159,9 +160,15 @@ loo_cluster.meta3l_result <- function(x,
     orig_lb    <- x$transf(x$data$yi - stats::qnorm(0.975) * sqrt(x$data$vi))
     orig_ub    <- x$transf(x$data$yi + stats::qnorm(0.975) * sqrt(x$data$vi))
     xlim_ref   <- auto_xlim(x$measure, orig_yi, orig_lb, orig_ub)
+    loo_title <- if (!is.null(title) && nzchar(title)) {
+      paste0(title, "\nLeave-One-Out by Cluster")
+    } else {
+      "Leave-One-Out by Cluster"
+    }
     .draw_loo_plot(tbl, x$measure, x$cluster,
                    rho = x$rho, group.e = x$group.e, group.c = x$group.c,
-                   shade = shade, xlim_ref = xlim_ref, title = title)
+                   shade = shade, xlim_ref = xlim_ref, title = loo_title,
+                   orig_data = x$data, orig_cluster = x$cluster)
   }
 
   invisible(list(table = tbl, plot_file = out_path))
@@ -183,7 +190,8 @@ loo_cluster.meta3l_result <- function(x,
                           rho = 0.5, group.e = NULL, group.c = NULL,
                           ilab = NULL, ilab.lab = NULL,
                           shade = "zebra", xlim_ref = NULL,
-                          title = NULL) {
+                          title = NULL, orig_data = NULL,
+                          orig_cluster = NULL) {
   n_rows     <- nrow(tbl)
   baseline_r <- n_rows
 
@@ -227,15 +235,13 @@ loo_cluster.meta3l_result <- function(x,
   }
 
   # Row structure (group_offset is 1 when intervention/control headers present)
-  # summary_row sits between column headers and first data row
+  has_favours <- measure %in% c("SMD", "MD", "RR", "OR")
   group_row   <- if (has_groups) 1L else NA_integer_
   header_row  <- 1L + group_offset
-  summary_row <- 2L + group_offset
-  data_rows   <- seq(3L + group_offset, n_rows + 2L + group_offset)
-  axis_row    <- n_rows + 3L + group_offset
-  axis_gap    <- n_rows + 4L + group_offset
-  favours_row <- n_rows + 5L + group_offset
-  title_row   <- n_rows + 6L + group_offset
+  data_rows   <- seq(2L + group_offset, n_rows + 1L + group_offset)
+  axis_row    <- n_rows + 2L + group_offset
+  favours_row <- if (has_favours) axis_row + 1L else NA_integer_
+  title_row   <- axis_row + if (has_favours) 2L else 1L
   total_rows  <- title_row
 
   # Column structure (dynamic for ilab)
@@ -274,8 +280,8 @@ loo_cluster.meta3l_result <- function(x,
   row_height_lines <- if (has_wrapped) 1.8 else 1.2
   rh <- rep(row_height_lines, total_rows)
   rh[header_row]  <- 1.5
-  rh[summary_row] <- 1.5
-  rh[axis_gap]    <- 1.0
+  rh[axis_row]    <- 2.0
+  rh[title_row]   <- if (!is.null(title) && grepl("\n", title)) 3.0 else 1.5
   row_heights <- grid::unit(rh, "lines")
 
   root_layout <- grid::grid.layout(
@@ -346,14 +352,15 @@ loo_cluster.meta3l_result <- function(x,
   grid::grid.text("p", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
   grid::popViewport()
 
-  # Method summary (in CI column of summary row, just above first data row)
-  push_cell(summary_row, ci_col)
+  # Method summary (in CI column of header row)
+  method_gp <- grid::gpar(fontface = "bold", cex = 0.65)
+  push_cell(header_row, ci_col)
   grid::grid.text(sprintf("Inverse Variance, %s", measure),
                   x = grid::unit(0.5, "npc"), y = grid::unit(0.65, "npc"),
-                  just = "centre", gp = bold_gp)
+                  just = "centre", gp = method_gp)
   grid::grid.text(sprintf("Three-Level, \u03c1 = %.1f", rho),
-                  x = grid::unit(0.5, "npc"), y = grid::unit(0.25, "npc"),
-                  just = "centre", gp = bold_gp)
+                  x = grid::unit(0.5, "npc"), y = grid::unit(0.3, "npc"),
+                  just = "centre", gp = method_gp)
   grid::popViewport()
 
   # --- Shade mask ---
@@ -385,13 +392,36 @@ loo_cluster.meta3l_result <- function(x,
 
     # ilab columns
     if (n_ilab > 0L) {
-      for (j in seq_len(n_ilab)) {
-        push_cell(row_i, ilab_cols[j])
-        grid::grid.text(ilab_wrapped[[j]][i],
-                        x = grid::unit(0.5, "npc"),
-                        y = grid::unit(0.5, "npc"),
-                        just = "centre", gp = sm_gp)
-        grid::popViewport()
+      if (i == n_rows && !is.null(orig_data) &&
+          !is.null(orig_cluster)) {
+        # Baseline row: show aggregated ilab
+        cl_vals <- orig_data[[orig_cluster]]
+        for (j in seq_len(n_ilab)) {
+          col_vals <- orig_data[[ilab[j]]]
+          agg <- aggregate_ilab_col(
+            col_vals, ilab[j], cl_vals,
+            data = orig_data
+          )
+          if (nzchar(agg)) {
+            push_cell(row_i, ilab_cols[j])
+            grid::grid.text(
+              agg,
+              x = grid::unit(0.5, "npc"),
+              just = "centre",
+              gp = bold_gp
+            )
+            grid::popViewport()
+          }
+        }
+      } else {
+        for (j in seq_len(n_ilab)) {
+          push_cell(row_i, ilab_cols[j])
+          grid::grid.text(ilab_wrapped[[j]][i],
+                          x = grid::unit(0.5, "npc"),
+                          y = grid::unit(0.5, "npc"),
+                          just = "centre", gp = sm_gp)
+          grid::popViewport()
+        }
       }
     }
 
@@ -410,17 +440,18 @@ loo_cluster.meta3l_result <- function(x,
     grid::popViewport()
 
     # Stats columns
+    stats_gp <- if (i == n_rows) bold_gp else norm_gp
     push_cell(row_i, i2b_col)
     grid::grid.text(if (is.na(row_d$i2_between)) "NA" else sprintf("%.1f", row_d$i2_between),
-                    x = grid::unit(0.5, "npc"), just = "centre", gp = norm_gp)
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = stats_gp)
     grid::popViewport()
     push_cell(row_i, i2w_col)
     grid::grid.text(if (is.na(row_d$i2_within)) "NA" else sprintf("%.1f", row_d$i2_within),
-                    x = grid::unit(0.5, "npc"), just = "centre", gp = norm_gp)
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = stats_gp)
     grid::popViewport()
     push_cell(row_i, pval_col)
     pval_str <- if (is.na(row_d$pval)) "NA" else if (row_d$pval < 0.001) "<.001" else sprintf("%.3f", row_d$pval)
-    grid::grid.text(pval_str, x = grid::unit(0.5, "npc"), just = "centre", gp = norm_gp)
+    grid::grid.text(pval_str, x = grid::unit(0.5, "npc"), just = "centre", gp = stats_gp)
     grid::popViewport()
   }
 
@@ -436,9 +467,33 @@ loo_cluster.meta3l_result <- function(x,
     grid::popViewport()
   }
 
-  # --- Axis ---
+  # --- Axis (drawn at top of row to hug diamond) ---
+  at_vals <- pretty(xlim, n = 5L)
   push_cell(axis_row, ci_col, xscale = xlim, clip = "off")
-  grid::grid.xaxis(at = pretty(xlim, n = 5L), gp = grid::gpar(cex = 0.65))
+  grid::grid.segments(
+    x0 = grid::unit(xlim[1], "native"),
+    x1 = grid::unit(xlim[2], "native"),
+    y0 = grid::unit(1, "npc"),
+    y1 = grid::unit(1, "npc"),
+    gp = grid::gpar(lwd = 1)
+  )
+  for (.tick in at_vals) {
+    if (.tick >= xlim[1] && .tick <= xlim[2]) {
+      grid::grid.segments(
+        x0 = grid::unit(.tick, "native"),
+        x1 = grid::unit(.tick, "native"),
+        y0 = grid::unit(1, "npc"),
+        y1 = grid::unit(1, "npc") - grid::unit(0.4, "lines"),
+        gp = grid::gpar(lwd = 1)
+      )
+      grid::grid.text(
+        format(.tick),
+        x  = grid::unit(.tick, "native"),
+        y  = grid::unit(1, "npc") - grid::unit(0.9, "lines"),
+        gp = grid::gpar(cex = 0.65)
+      )
+    }
+  }
   grid::popViewport()
 
   # --- Favours labels ---
@@ -446,9 +501,11 @@ loo_cluster.meta3l_result <- function(x,
     fav_gp <- grid::gpar(fontface = "bold", cex = 0.75)
     push_cell(favours_row, ci_col, xscale = xlim, clip = "off")
     grid::grid.text(paste0("Favours ", if (!is.null(group.c)) group.c else "Control"),
-                    x = grid::unit(0.25, "npc"), just = "centre", gp = fav_gp)
+                    x = grid::unit(0.25, "npc"), y = grid::unit(0.5, "npc"),
+                    just = "centre", gp = fav_gp)
     grid::grid.text(paste0("Favours ", if (!is.null(group.e)) group.e else "Treatment"),
-                    x = grid::unit(0.75, "npc"), just = "centre", gp = fav_gp)
+                    x = grid::unit(0.75, "npc"), y = grid::unit(0.5, "npc"),
+                    just = "centre", gp = fav_gp)
     grid::popViewport()
   }
 
@@ -457,6 +514,7 @@ loo_cluster.meta3l_result <- function(x,
     push_cell(title_row, ci_col)
     grid::grid.text(title,
                     x    = grid::unit(0.5, "npc"),
+                    y    = grid::unit(0.5, "npc"),
                     just = "centre",
                     gp   = grid::gpar(fontface = "bold", cex = 0.85))
     grid::popViewport()
