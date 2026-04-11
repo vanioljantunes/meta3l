@@ -149,6 +149,11 @@ loo_cluster.meta3l_result <- function(x,
   tbl <- rbind(tbl, baseline)
   rownames(tbl) <- NULL
 
+  # Drop p-value column for single-arm measures (no meaningful null)
+  if (is_single_arm(x$measure)) {
+    tbl$pval <- NULL
+  }
+
   # -------------------------------------------------------------------
   # 5. Resolve file and open device
   # -------------------------------------------------------------------
@@ -228,10 +233,12 @@ loo_cluster.meta3l_result <- function(x,
   }
   group_offset <- if (has_groups) 1L else 0L
 
-  # Pre-compute wrapped ilab values and per-column widths
-  ilab_wrapped    <- list()
-  ilab_col_widths <- numeric(n_ilab)
-  has_wrapped     <- FALSE
+  # Pre-compute wrapped ilab values, wrapped headers, and per-column widths
+  ilab_wrapped     <- list()
+  ilab_hdr_wrapped <- character(n_ilab)
+  ilab_col_widths  <- numeric(n_ilab)
+  has_wrapped      <- FALSE
+  has_wrapped_hdr  <- FALSE
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) {
       if (ilab[j] %in% names(tbl)) {
@@ -241,9 +248,12 @@ loo_cluster.meta3l_result <- function(x,
       }
       ilab_wrapped[[j]] <- wrap_label(vals)
       if (any(grepl("\n", ilab_wrapped[[j]]))) has_wrapped <- TRUE
-      lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
-      max_data_chars <- max(nchar(lines), na.rm = TRUE)
-      hdr_chars <- nchar(ilab_labels[j])
+      ilab_hdr_wrapped[j] <- wrap_label(ilab_labels[j])
+      if (grepl("\n", ilab_hdr_wrapped[j])) has_wrapped_hdr <- TRUE
+      data_lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
+      max_data_chars <- max(nchar(data_lines), na.rm = TRUE)
+      hdr_lines <- unlist(strsplit(ilab_hdr_wrapped[j], "\n"))
+      hdr_chars <- max(nchar(hdr_lines), na.rm = TRUE)
       ilab_col_widths[j] <- ilab_col_cm(max(max_data_chars, hdr_chars))
     }
   }
@@ -259,6 +269,7 @@ loo_cluster.meta3l_result <- function(x,
   total_rows  <- title_row
 
   # Column structure (dynamic for ilab)
+  has_pval   <- "pval" %in% names(tbl)
   label_col  <- 1L
   ilab_cols  <- if (n_ilab > 0L) seq(2L, n_ilab + 1L) else integer(0)
   gap1_col   <- n_ilab + 2L
@@ -266,8 +277,9 @@ loo_cluster.meta3l_result <- function(x,
   gap2_col   <- n_ilab + 4L
   i2b_col    <- n_ilab + 5L
   i2w_col    <- n_ilab + 6L
-  pval_col   <- n_ilab + 7L
-  n_cols     <- pval_col
+  pval_col   <- if (has_pval) n_ilab + 7L else NA_integer_
+  last_col   <- if (has_pval) pval_col else i2w_col
+  n_cols     <- last_col
 
   label_chars <- max(nchar(as.character(tbl$omitted)), nchar("Omitted"), na.rm = TRUE)
   label_w     <- max(2.5, ilab_col_cm(label_chars))
@@ -275,7 +287,8 @@ loo_cluster.meta3l_result <- function(x,
 
   # Cap CI panel at 40% of total width: ci / (ci + other) <= 0.4
   # Floor of 5 cm prevents cramping when few columns are present
-  other_cm <- label_w + sum(ilab_col_widths) + 2 * gap_w + 2.2 + 2.2 + 1.5
+  pval_w <- if (has_pval) 1.5 else 0
+  other_cm <- label_w + sum(ilab_col_widths) + 2 * gap_w + 2.2 + 2.2 + pval_w
   ci_cm    <- max(min(7, other_cm * 2 / 3), 5)
 
   col_units_list <- vector("list", n_cols)
@@ -288,12 +301,14 @@ loo_cluster.meta3l_result <- function(x,
   col_units_list[[gap2_col]]  <- grid::unit(gap_w, "cm")
   col_units_list[[i2b_col]]   <- grid::unit(2.2, "cm")
   col_units_list[[i2w_col]]   <- grid::unit(2.2, "cm")
-  col_units_list[[pval_col]]  <- grid::unit(1.5, "cm")
+  if (has_pval) {
+    col_units_list[[pval_col]] <- grid::unit(1.5, "cm")
+  }
   col_widths_units <- do.call(grid::unit.c, col_units_list)
 
   row_height_lines <- if (has_wrapped) 1.8 else 1.2
   rh <- rep(row_height_lines, total_rows)
-  rh[header_row]  <- 1.5
+  rh[header_row]  <- if (has_wrapped_hdr) 2.6 else 1.5
   rh[axis_row]    <- 2.0
   rh[title_row]   <- if (!is.null(title) && grepl("\n", title)) 3.0 else 1.5
   row_heights <- grid::unit(rh, "lines")
@@ -351,7 +366,7 @@ loo_cluster.meta3l_result <- function(x,
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) {
       push_cell(header_row, ilab_cols[j])
-      grid::grid.text(ilab_labels[j], x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+      grid::grid.text(ilab_hdr_wrapped[j], x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
       grid::popViewport()
     }
   }
@@ -362,9 +377,11 @@ loo_cluster.meta3l_result <- function(x,
   push_cell(header_row, i2w_col)
   grid::grid.text("I\u00b2 Within", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
   grid::popViewport()
-  push_cell(header_row, pval_col)
-  grid::grid.text("p", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
-  grid::popViewport()
+  if (has_pval) {
+    push_cell(header_row, pval_col)
+    grid::grid.text("p", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+    grid::popViewport()
+  }
 
   # Method summary (in CI column of header row)
   method_gp <- grid::gpar(fontface = "bold", cex = 0.65)
@@ -392,7 +409,7 @@ loo_cluster.meta3l_result <- function(x,
     row_d <- tbl[i, ]
 
     if (shade_mask[i]) {
-      push_span(row_i, label_col, pval_col)
+      push_span(row_i, label_col, last_col)
       draw_zebra_rect()
       grid::popViewport()
     }
@@ -463,10 +480,12 @@ loo_cluster.meta3l_result <- function(x,
     grid::grid.text(if (is.na(row_d$i2_within)) "NA" else sprintf("%.1f", row_d$i2_within),
                     x = grid::unit(0.5, "npc"), just = "centre", gp = stats_gp)
     grid::popViewport()
-    push_cell(row_i, pval_col)
-    pval_str <- if (is.na(row_d$pval)) "NA" else if (row_d$pval < 0.001) "<.001" else sprintf("%.3f", row_d$pval)
-    grid::grid.text(pval_str, x = grid::unit(0.5, "npc"), just = "centre", gp = stats_gp)
-    grid::popViewport()
+    if (has_pval) {
+      push_cell(row_i, pval_col)
+      pval_str <- if (is.na(row_d$pval)) "NA" else if (row_d$pval < 0.001) "<.001" else sprintf("%.3f", row_d$pval)
+      grid::grid.text(pval_str, x = grid::unit(0.5, "npc"), just = "centre", gp = stats_gp)
+      grid::popViewport()
+    }
   }
 
   # --- Reference line (on top, solid black) ---

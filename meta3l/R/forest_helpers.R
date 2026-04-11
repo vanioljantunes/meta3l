@@ -342,17 +342,24 @@ aggregate_ilab_col <- function(values, col_name, cluster, data = NULL) {
 wrap_label <- function(txt, max_chars = 15L) {
   vapply(as.character(txt), function(t) {
     if (is.na(t)) return("")
+    # Priority 1: if the label contains a parenthesised qualifier, push it to
+    # a new line regardless of total length. This is the most common header
+    # pattern (e.g. "Follow-up (days)", "PCPC (mean)") and visually groups the
+    # qualifier under its label.
+    paren_pos <- regexpr("\\(", t)[[1L]]
+    if (paren_pos > 1L) {
+      head <- trimws(substr(t, 1L, paren_pos - 1L))
+      tail <- substr(t, paren_pos, nchar(t))
+      return(paste0(head, "\n", tail))
+    }
+    # Priority 2: split at the space closest to the midpoint when the string
+    # is longer than the max_chars threshold
     if (nchar(t) <= max_chars) return(t)
     mid <- nchar(t) / 2
-    pos <- gregexpr("[ (]", t)[[1L]]
+    pos <- gregexpr("[ ]", t)[[1L]]
     if (pos[1L] == -1L) return(t)
     best <- pos[which.min(abs(pos - mid))]
-    ch <- substr(t, best, best)
-    if (ch == "(") {
-      paste0(trimws(substr(t, 1L, best - 1L)), "\n", substr(t, best, nchar(t)))
-    } else {
-      paste0(substr(t, 1L, best - 1L), "\n", substr(t, best + 1L, nchar(t)))
-    }
+    paste0(substr(t, 1L, best - 1L), "\n", substr(t, best + 1L, nchar(t)))
   }, character(1L), USE.NAMES = FALSE)
 }
 

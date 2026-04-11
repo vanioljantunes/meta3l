@@ -369,22 +369,28 @@ forest_subgroup.meta3L <- function(x,
   # -------------------------------------------------------------------
   # 6. Column layout (mirrors forest.meta3L)
   # -------------------------------------------------------------------
-  # Pre-compute wrapped ilab values and per-column widths
-  ilab_wrapped    <- list()
-  ilab_col_widths <- numeric(n_ilab)
-  has_wrapped     <- FALSE
+  # Pre-compute wrapped ilab values, wrapped headers, and per-column widths
+  ilab_wrapped     <- list()
+  ilab_hdr_wrapped <- character(n_ilab)
+  ilab_col_widths  <- numeric(n_ilab)
+  has_wrapped      <- FALSE
+  has_wrapped_hdr  <- FALSE
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) {
       vals <- as.character(dat[[ilab[j]]])
       ilab_wrapped[[j]] <- wrap_label(vals)
       if (any(grepl("\n", ilab_wrapped[[j]]))) has_wrapped <- TRUE
-      lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
-      max_data_chars <- max(nchar(lines), na.rm = TRUE)
-      hdr_chars <- nchar(ilab_labels[j])
+      ilab_hdr_wrapped[j] <- wrap_label(ilab_labels[j])
+      if (grepl("\n", ilab_hdr_wrapped[j])) has_wrapped_hdr <- TRUE
+      data_lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
+      max_data_chars <- max(nchar(data_lines), na.rm = TRUE)
+      hdr_lines <- unlist(strsplit(ilab_hdr_wrapped[j], "\n"))
+      hdr_chars <- max(nchar(hdr_lines), na.rm = TRUE)
       ilab_col_widths[j] <- ilab_col_cm(max(max_data_chars, hdr_chars))
     }
   }
 
+  show_pval   <- !is_single_arm(measure)
   studlab_col <- 1L
   ilab_cols   <- if (n_ilab > 0L) seq(2L, n_ilab + 1L) else integer(0)
   weight_col  <- if (showweights) n_ilab + 2L else NA_integer_
@@ -392,14 +398,15 @@ forest_subgroup.meta3L <- function(x,
   ci_col      <- if (showweights) n_ilab + 4L else n_ilab + 3L
   gap2_col    <- if (showweights) n_ilab + 5L else n_ilab + 4L
   results_col <- if (showweights) n_ilab + 6L else n_ilab + 5L
-  pval_col    <- results_col + 1L
-  n_cols      <- pval_col
+  pval_col    <- if (show_pval) results_col + 1L else NA_integer_
+  last_col    <- if (show_pval) pval_col else results_col
+  n_cols      <- last_col
 
   studlab_chars <- max(nchar(as.character(slab_vals)), nchar("Study"), na.rm = TRUE)
   studlab_w  <- max(2.5, ilab_col_cm(studlab_chars))
   weight_w   <- 1.2
   gap_w      <- 0.5
-  pval_w     <- 1.8
+  pval_w     <- if (show_pval) 1.8 else 0
   results_chars <- max(nchar(sprintf("%.2f [%.2f; %.2f]", yi_bt, ci_lb_bt, ci_ub_bt)),
                        nchar("Estimate [95% CI]"), na.rm = TRUE)
   results_w  <- ilab_col_cm(results_chars)
@@ -415,7 +422,9 @@ forest_subgroup.meta3L <- function(x,
   col_widths_cm[gap1_col]    <- gap_w
   col_widths_cm[gap2_col]    <- gap_w
   col_widths_cm[results_col] <- results_w
-  col_widths_cm[pval_col]    <- pval_w
+  if (show_pval) {
+    col_widths_cm[pval_col]  <- pval_w
+  }
 
   # Cap CI panel: floor 4 cm, ceiling so CI <= 35% of total width
   other_cm <- sum(col_widths_cm)
@@ -447,7 +456,8 @@ forest_subgroup.meta3L <- function(x,
                          has_wrapped = has_wrapped)
   ilab_cm  <- sum(ilab_col_widths)
   total_cm <- studlab_w + ilab_cm +
-    (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w + pval_w
+    (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w +
+    (if (show_pval) pval_w else 0)
   auto_w   <- as.integer(total_cm * 300 / 2.54) + 300L
   if (is.null(width)) dims$width <- max(dims$width, auto_w)
 
@@ -476,7 +486,7 @@ forest_subgroup.meta3L <- function(x,
 
   row_height_lines <- if (has_wrapped) 1.8 else 1.2
   rh <- rep(row_height_lines, n_total_rows)
-  rh[1L + group_offset] <- 1.5   # header row (includes method summary)
+  rh[1L + group_offset] <- if (has_wrapped_hdr) 2.6 else 1.5
   if (length(diamond_rows) > 0L) rh[diamond_rows] <- 2.0
   row_heights <- grid::unit(rh, "lines")
 
@@ -550,7 +560,7 @@ forest_subgroup.meta3L <- function(x,
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) {
       push_cell(current_row, ilab_cols[j])
-      grid::grid.text(ilab_labels[j], x = grid::unit(0.5, "npc"),
+      grid::grid.text(ilab_hdr_wrapped[j], x = grid::unit(0.5, "npc"),
                       just = "centre", gp = bold_gp)
       grid::popViewport()
     }
@@ -568,10 +578,12 @@ forest_subgroup.meta3L <- function(x,
                   just = "centre", gp = bold_gp)
   grid::popViewport()
 
-  push_cell(current_row, pval_col)
-  grid::grid.text("p-value", x = grid::unit(0.5, "npc"),
-                  just = "centre", gp = bold_gp)
-  grid::popViewport()
+  if (show_pval) {
+    push_cell(current_row, pval_col)
+    grid::grid.text("p-value", x = grid::unit(0.5, "npc"),
+                    just = "centre", gp = bold_gp)
+    grid::popViewport()
+  }
 
   # Method summary (in CI column of header row)
   method_gp <- grid::gpar(fontface = "bold", cex = 0.65)
@@ -622,7 +634,7 @@ forest_subgroup.meta3L <- function(x,
 
     # ---- Subgroup header row ----
     draw_ov_line(current_row)
-    push_span(current_row, studlab_col, pval_col)
+    push_span(current_row, studlab_col, last_col)
     grid::grid.text(as.character(gv),
                     x    = grid::unit(0, "npc"),
                     just = "left",
@@ -638,7 +650,7 @@ forest_subgroup.meta3L <- function(x,
 
       # Row shading
       if (shade_mask[global_i]) {
-        push_span(row_i, studlab_col, pval_col)
+        push_span(row_i, studlab_col, last_col)
         draw_zebra_rect(colshade)
         grid::popViewport()
       }
@@ -819,7 +831,7 @@ forest_subgroup.meta3L <- function(x,
       grid::popViewport()
 
       # p-value column
-      if (!is.na(sg$pval)) {
+      if (show_pval && !is.na(sg$pval)) {
         sg_pval_str <- if (sg$pval < 0.001) "<0.001" else sprintf("%.4f", sg$pval)
         push_cell(row_d, pval_col)
         grid::grid.text(sg_pval_str,
@@ -910,16 +922,18 @@ forest_subgroup.meta3L <- function(x,
     grid::popViewport()
 
     # Overall p-value column
-    pval_ov <- x$model$pval
-    pval_ov_str <- if (is.na(pval_ov)) "" else
-      if (pval_ov < 0.001) "<0.001" else sprintf("%.4f", pval_ov)
-    push_cell(row_ov, pval_col)
-    grid::grid.text(pval_ov_str,
-                    x    = grid::unit(0.5, "npc"),
-                    y    = grid::unit(0.65, "npc"),
-                    just = "centre",
-                    gp   = grid::gpar(cex = 0.75, fontface = "bold"))
-    grid::popViewport()
+    if (show_pval) {
+      pval_ov <- x$model$pval
+      pval_ov_str <- if (is.na(pval_ov)) "" else
+        if (pval_ov < 0.001) "<0.001" else sprintf("%.4f", pval_ov)
+      push_cell(row_ov, pval_col)
+      grid::grid.text(pval_ov_str,
+                      x    = grid::unit(0.5, "npc"),
+                      y    = grid::unit(0.65, "npc"),
+                      just = "centre",
+                      gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+      grid::popViewport()
+    }
 
     current_row <- current_row + 1L
   }

@@ -13,6 +13,21 @@ REQUIRED_COLS <- list(
 )
 
 
+#' Check whether a measure is single-arm (proportion/prevalence)
+#'
+#' Single-arm measures (PLO, PAS, GLMM) estimate a single proportion with no
+#' natural null hypothesis: the reference value of 0.5 (log-odds = 0) is not
+#' clinically meaningful. The p-value from the underlying model is therefore
+#' suppressed in tables and plots for these measures.
+#'
+#' @param measure Character string; the effect size measure.
+#' @return Logical scalar.
+#' @keywords internal
+is_single_arm <- function(measure) {
+  measure %in% c("PLO", "PAS", "GLMM")
+}
+
+
 #' Resolve the back-transformation function for a given effect size measure
 #'
 #' @param measure Character string; one of PLO, PAS, RR, OR, SMD, MD.

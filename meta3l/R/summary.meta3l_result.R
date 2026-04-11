@@ -43,8 +43,10 @@ summary.meta3l_result <- function(object, digits = 4L, ...) {
 
   cat(sprintf("  Estimate (log scale) : %.*f\n", digits, b))
   cat(sprintf("  SE (robust CR2)      : %.*f\n", digits, se))
-  cat(sprintf("  z-value              : %.*f\n", digits, zval))
-  cat(sprintf("  p-value              : %.*f\n", digits, pval))
+  if (!is_single_arm(object$measure)) {
+    cat(sprintf("  z-value              : %.*f\n", digits, zval))
+    cat(sprintf("  p-value              : %.*f\n", digits, pval))
+  }
   cat(sprintf("  95%% CI [log scale]  : [%.*f, %.*f]\n",
               digits, ci_lb, digits, ci_ub))
 

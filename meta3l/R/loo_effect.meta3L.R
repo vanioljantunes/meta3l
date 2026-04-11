@@ -147,6 +147,11 @@ loo_effect.meta3l_result <- function(x,
   tbl <- rbind(tbl, baseline)
   rownames(tbl) <- NULL
 
+  # Drop p-value column for single-arm measures (no meaningful null)
+  if (is_single_arm(x$measure)) {
+    tbl$pval <- NULL
+  }
+
   # -------------------------------------------------------------------
   # 3b. Attach ilab columns to table (if present in data)
   # -------------------------------------------------------------------
