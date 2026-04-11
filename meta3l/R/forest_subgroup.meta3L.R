@@ -182,31 +182,48 @@ forest_subgroup.meta3L <- function(x,
       formula_g <- stats::as.formula(
         paste0("~ 1 | ", cluster, " / TE_id")
       )
-      fit_g_raw <- tryCatch(
-        metafor::rma.mv(yi, V_g,
-                        random = formula_g,
-                        data   = dat_g),
-        error = function(e) {
-          tryCatch(
-            metafor::rma.mv(yi, V_g,
-                            random  = formula_g,
-                            data    = dat_g,
-                            control = list(optimizer = "bobyqa")),
-            error = function(e2) NULL
+      if (x$measure == "GLMM") {
+        fit_g_raw <- tryCatch(
+          metafor::rma.glmm(xi = dat_g$xi, ni = dat_g$ni,
+                            measure = "PLO", slab = dat_g[[x$slab]],
+                            data = dat_g),
+          error = function(e) NULL
+        )
+        if (!is.null(fit_g_raw)) {
+          rob_g <- fit_g_raw
+          fit_g <- fit_g_raw
+          i2_g  <- tryCatch(
+            compute_i2_glmm(fit_g, dat_g$vi),
+            error = function(e) list(total = 0, between = 0, within = 0)
           )
         }
-      )
-      if (!is.null(fit_g_raw)) {
-        rob_g <- tryCatch(
-          metafor::robust(fit_g_raw, cluster = dat_g[[cluster]],
-                          clubSandwich = TRUE),
-          error = function(e) fit_g_raw
+      } else {
+        fit_g_raw <- tryCatch(
+          metafor::rma.mv(yi, V_g,
+                          random = formula_g,
+                          data   = dat_g),
+          error = function(e) {
+            tryCatch(
+              metafor::rma.mv(yi, V_g,
+                              random  = formula_g,
+                              data    = dat_g,
+                              control = list(optimizer = "bobyqa")),
+              error = function(e2) NULL
+            )
+          }
         )
-        fit_g <- fit_g_raw
-        i2_g  <- tryCatch(
-          compute_i2(fit_g),
-          error = function(e) list(total = 0, between = 0, within = 0)
-        )
+        if (!is.null(fit_g_raw)) {
+          rob_g <- tryCatch(
+            metafor::robust(fit_g_raw, cluster = dat_g[[cluster]],
+                            clubSandwich = TRUE),
+            error = function(e) fit_g_raw
+          )
+          fit_g <- fit_g_raw
+          i2_g  <- tryCatch(
+            compute_i2(fit_g),
+            error = function(e) list(total = 0, between = 0, within = 0)
+          )
+        }
       }
     }
 
@@ -271,22 +288,27 @@ forest_subgroup.meta3L <- function(x,
       mods_formula <- stats::as.formula(
         paste0("~ factor(", subgroup, ")")
       )
-      res_mod <- tryCatch(
-        metafor::rma.mv(yi, V,
-                        mods   = mods_formula,
-                        random = mod_formula,
-                        data   = dat),
-        error = function(e) {
-          tryCatch(
-            metafor::rma.mv(yi, V,
-                            mods    = mods_formula,
-                            random  = mod_formula,
-                            data    = dat,
-                            control = list(optimizer = "bobyqa")),
-            error = function(e2) NULL
-          )
-        }
-      )
+      if (x$measure == "GLMM") {
+        # rma.glmm does not support mods; skip Q-test for GLMM
+        res_mod <- NULL
+      } else {
+        res_mod <- tryCatch(
+          metafor::rma.mv(yi, V,
+                          mods   = mods_formula,
+                          random = mod_formula,
+                          data   = dat),
+          error = function(e) {
+            tryCatch(
+              metafor::rma.mv(yi, V,
+                              mods    = mods_formula,
+                              random  = mod_formula,
+                              data    = dat,
+                              control = list(optimizer = "bobyqa")),
+              error = function(e2) NULL
+            )
+          }
+        )
+      }
       if (!is.null(res_mod)) {
         qtest_text <- sprintf("Test for subgroup differences: p-value = %.3f", res_mod$QMp)
       }

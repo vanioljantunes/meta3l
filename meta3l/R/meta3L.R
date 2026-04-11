@@ -1,14 +1,15 @@
 # Internal mapping from meta-style argument names to escalc canonical names.
 # Used for auto-detection and meta-style API translation.  Not exported.
 META_COL_MAP <- list(
-  PLO = list(xi = "event", ni = "n"),
-  PAS = list(xi = "event", ni = "n"),
-  RR  = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
-  OR  = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
-  SMD = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
-             m2i = "mean.c", sd2i = "sd.c", n2i = "n.c"),
-  MD  = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
-             m2i = "mean.c", sd2i = "sd.c", n2i = "n.c")
+  PLO  = list(xi = "event", ni = "n"),
+  PAS  = list(xi = "event", ni = "n"),
+  GLMM = list(xi = "event", ni = "n"),
+  RR   = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
+  OR   = list(ai = "event.e", n1i = "n.e", ci = "event.c", n2i = "n.c"),
+  SMD  = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
+              m2i = "mean.c", sd2i = "sd.c", n2i = "n.c"),
+  MD   = list(m1i = "mean.e", sd1i = "sd.e", n1i = "n.e",
+              m2i = "mean.c", sd2i = "sd.c", n2i = "n.c")
 )
 
 #' Fit a three-level random-effects meta-analysis model
@@ -242,7 +243,7 @@ meta3L <- function(data,
 
   # (a) Meta-style args: translate meta-style parameter names to escalc names
 
-  # PLO/PAS: event -> xi, n -> ni
+  # PLO/PAS/GLMM: event -> xi, n -> ni
   if (!is.null(event)) col_args[["xi"]] <- event
   if (!is.null(n))     col_args[["ni"]] <- n
 
@@ -392,8 +393,12 @@ meta3L <- function(data,
   }
 
   # --- 7. Call escalc via do.call with canonical column names -----------------
+  # For GLMM, use PLO to compute yi/vi for plotting; the actual model uses
+  # rma.glmm which fits a binomial-normal GLMM directly.
+  escalc_measure <- if (measure == "GLMM") "PLO" else measure
+
   escalc_args <- list(
-    measure = measure,
+    measure = escalc_measure,
     data    = dat,
     slab    = dat[[slab]]
   )
@@ -442,18 +447,33 @@ meta3L <- function(data,
   # --- 9. Build dynamic random formula ----------------------------------------
   random_formula <- stats::as.formula(paste0("~ 1 | ", cluster, " / TE_id"))
 
-  # --- 10. Fit three-level model -----------------------------------------------
-  res <- metafor::rma.mv(yi, V,
-                         random = random_formula,
-                         data   = dat)
+  if (measure == "GLMM") {
+    # --- 10-12 (GLMM path) ---------------------------------------------------
+    # Fit binomial-normal GLMM directly on event/total counts
+    res <- metafor::rma.glmm(
+      xi      = dat$xi,
+      ni      = dat$ni,
+      measure = "PLO",
+      slab    = dat[[slab]],
+      data    = dat
+    )
+    # rma.glmm is its own model — no robust wrapper needed
+    res_robust <- res
+    i2 <- compute_i2_glmm(res, dat$vi)
+  } else {
+    # --- 10. Fit three-level model (standard path) ----------------------------
+    res <- metafor::rma.mv(yi, V,
+                           random = random_formula,
+                           data   = dat)
 
-  # --- 11. Robust variance estimation (CR2) -----------------------------------
-  res_robust <- metafor::robust(res,
-                                cluster       = dat[[cluster]],
-                                clubSandwich  = TRUE)
+    # --- 11. Robust variance estimation (CR2) ---------------------------------
+    res_robust <- metafor::robust(res,
+                                  cluster       = dat[[cluster]],
+                                  clubSandwich  = TRUE)
 
-  # --- 12. I-squared via P-matrix projection ----------------------------------
-  i2 <- compute_i2(res)
+    # --- 12. I-squared via P-matrix projection --------------------------------
+    i2 <- compute_i2(res)
+  }
 
   # --- 13. Back-transform pooled estimate and CI from robust model ------------
   estimate <- transf_fn(res_robust$b[[1L]])

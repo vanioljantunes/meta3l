@@ -61,6 +61,14 @@ bubble.meta3L <- function(x, mod, file = character(0),
                           title  = NULL,
                           ...) {
 
+  # --- 0. GLMM guard -----------------------------------------------------------
+  if (x$measure == "GLMM") {
+    stop("bubble() does not support measure = 'GLMM'. ",
+         "rma.glmm does not support moderator (mods) arguments. ",
+         "Use measure = 'PLO' for meta-regression analyses.",
+         call. = FALSE)
+  }
+
   # --- 1. Validate mod column -------------------------------------------------
   if (!mod %in% names(x$data)) {
     stop("Column '", mod, "' not found in meta3l_result$data.",

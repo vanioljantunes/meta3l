@@ -3,12 +3,13 @@
 
 # Supported measure → required escalc column names
 REQUIRED_COLS <- list(
-  PLO = c("xi", "ni"),
-  PAS = c("xi", "ni"),
-  SMD = c("m1i", "sd1i", "n1i", "m2i", "sd2i", "n2i"),
-  MD  = c("m1i", "sd1i", "n1i", "m2i", "sd2i", "n2i"),
-  RR  = c("ai", "bi", "ci", "di"),
-  OR  = c("ai", "bi", "ci", "di")
+  PLO  = c("xi", "ni"),
+  PAS  = c("xi", "ni"),
+  GLMM = c("xi", "ni"),
+  SMD  = c("m1i", "sd1i", "n1i", "m2i", "sd2i", "n2i"),
+  MD   = c("m1i", "sd1i", "n1i", "m2i", "sd2i", "n2i"),
+  RR   = c("ai", "bi", "ci", "di"),
+  OR   = c("ai", "bi", "ci", "di")
 )
 
 
@@ -25,15 +26,16 @@ resolve_transf <- function(measure, user_transf = NULL) {
   }
 
   switch(measure,
-    PLO = metafor::transf.ilogit,
-    PAS = metafor::transf.iarcsin,
-    RR  = exp,
-    OR  = exp,
-    SMD = identity,
-    MD  = identity,
+    PLO  = metafor::transf.ilogit,
+    PAS  = metafor::transf.iarcsin,
+    GLMM = metafor::transf.ilogit,
+    RR   = exp,
+    OR   = exp,
+    SMD  = identity,
+    MD   = identity,
     stop(
       "measure '", measure, "' is not supported. ",
-      "Use PLO, PAS, SMD, MD, RR, or OR.",
+      "Use PLO, PAS, GLMM, SMD, MD, RR, or OR.",
       call. = FALSE
     )
   )
@@ -127,5 +129,35 @@ compute_i2 <- function(fit) {
     total   = 100 * sum(fit$sigma2) / denom,
     between = 100 * fit$sigma2[1L] / denom,
     within  = 100 * fit$sigma2[2L] / denom
+  )
+}
+
+
+#' Compute I-squared for a GLMM model
+#'
+#' For \code{rma.glmm} objects, I-squared is computed as
+#' \code{tau2 / (tau2 + s2)} where \code{s2} is the typical within-study
+#' sampling variance estimated from the escalc-derived \code{vi} values.
+#' Since GLMM is a two-level model, only total and between-cluster I-squared
+#' are reported (within = 0).
+#'
+#' @param fit An \code{rma.glmm} object.
+#' @param vi Numeric vector of sampling variances from \code{escalc}.
+#' @return A named list with elements \code{total}, \code{between}, and
+#'   \code{within} (percentages).
+#' @keywords internal
+compute_i2_glmm <- function(fit, vi) {
+  tau2 <- fit$tau2
+  k    <- length(vi)
+  W    <- sum(1 / vi)
+  s2   <- (k - 1) / (W - sum(1 / vi^2) / W)
+  denom <- tau2 + s2
+
+  i2_total <- 100 * tau2 / denom
+
+  list(
+    total   = i2_total,
+    between = i2_total,
+    within  = 0
   )
 }
