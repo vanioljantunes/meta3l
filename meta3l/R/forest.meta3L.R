@@ -151,18 +151,23 @@ forest.meta3L <- function(x,
   # -------------------------------------------------------------------
   # 6. Resolve file path and open device
   # -------------------------------------------------------------------
-  # Pre-compute wrapped ilab values and per-column widths
+  # Pre-compute wrapped ilab values, wrapped headers, and per-column widths
   ilab_wrapped    <- list()
+  ilab_hdr_wrapped <- character(n_ilab)
   ilab_col_widths <- numeric(n_ilab)
   has_wrapped     <- FALSE
+  has_wrapped_hdr <- FALSE
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) {
       vals <- as.character(x$data[[ilab[j]]])
       ilab_wrapped[[j]] <- wrap_label(vals)
       if (any(grepl("\n", ilab_wrapped[[j]]))) has_wrapped <- TRUE
-      lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
-      max_data_chars <- max(nchar(lines), na.rm = TRUE)
-      hdr_chars <- nchar(ilab_labels[j])
+      ilab_hdr_wrapped[j] <- wrap_label(ilab_labels[j])
+      if (grepl("\n", ilab_hdr_wrapped[j])) has_wrapped_hdr <- TRUE
+      data_lines <- unlist(strsplit(ilab_wrapped[[j]], "\n"))
+      max_data_chars <- max(nchar(data_lines), na.rm = TRUE)
+      hdr_lines <- unlist(strsplit(ilab_hdr_wrapped[j], "\n"))
+      hdr_chars <- max(nchar(hdr_lines), na.rm = TRUE)
       ilab_col_widths[j] <- ilab_col_cm(max(max_data_chars, hdr_chars))
     }
   }
@@ -194,6 +199,7 @@ forest.meta3L <- function(x,
   #   col n_ilab+5   : gap
   #   col n_ilab+6   : result text
 
+  show_pval   <- !is_single_arm(x$measure)
   studlab_col <- 1L
   ilab_cols   <- if (n_ilab > 0L) seq(2L, n_ilab + 1L) else integer(0)
   weight_col  <- if (showweights) n_ilab + 2L else NA_integer_
@@ -201,15 +207,16 @@ forest.meta3L <- function(x,
   ci_col      <- if (showweights) n_ilab + 4L else n_ilab + 3L
   gap2_col    <- if (showweights) n_ilab + 5L else n_ilab + 4L
   results_col <- if (showweights) n_ilab + 6L else n_ilab + 5L
-  pval_col    <- results_col + 1L
-  n_cols      <- pval_col
+  pval_col    <- if (show_pval) results_col + 1L else NA_integer_
+  last_col    <- if (show_pval) pval_col else results_col
+  n_cols      <- last_col
 
   # Content-adaptive widths (in cm)
   studlab_chars <- max(nchar(as.character(slab_vals)), nchar("Study"), na.rm = TRUE)
   studlab_w  <- max(2.5, ilab_col_cm(studlab_chars))
   weight_w   <- 1.2
   gap_w      <- 0.5
-  pval_w     <- 1.8
+  pval_w     <- if (show_pval) 1.8 else 0
   results_chars <- max(nchar(study_text), nchar(pooled_text),
                        nchar(paste0(x$measure, " [95% CI]")), na.rm = TRUE)
   results_w  <- ilab_col_cm(results_chars)
@@ -228,7 +235,9 @@ forest.meta3L <- function(x,
   col_widths_cm[gap1_col]    <- gap_w
   col_widths_cm[gap2_col]    <- gap_w
   col_widths_cm[results_col] <- results_w
-  col_widths_cm[pval_col]    <- pval_w
+  if (show_pval) {
+    col_widths_cm[pval_col]  <- pval_w
+  }
 
   # Cap CI panel: floor 4 cm, ceiling so CI <= 35% of total width
   other_cm <- sum(col_widths_cm)
@@ -246,7 +255,7 @@ forest.meta3L <- function(x,
 
   row_height_lines <- if (has_wrapped) 1.8 else 1.2
   rh <- rep(row_height_lines, total_rows)
-  rh[header_row]  <- 1.5
+  rh[header_row]  <- if (has_wrapped_hdr) 2.6 else 1.5
   rh[pooled_row]  <- 1.8
   rh[axis_row]    <- 2.0
   rh[title_row]   <- 1.5
@@ -257,7 +266,8 @@ forest.meta3L <- function(x,
   # -------------------------------------------------------------------
   ilab_cm  <- sum(ilab_col_widths)
   total_cm <- studlab_w + ilab_cm +
-    (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w + pval_w
+    (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w +
+    (if (show_pval) pval_w else 0)
   auto_w   <- as.integer(total_cm * 300 / 2.54) + 300L
   dims     <- auto_dims(total_rows, width, height,
                          has_wrapped = has_wrapped)
@@ -357,7 +367,7 @@ forest.meta3L <- function(x,
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) {
       push_cell(header_row, ilab_cols[j])
-      grid::grid.text(ilab_labels[j],
+      grid::grid.text(ilab_hdr_wrapped[j],
                       x    = grid::unit(0.5, "npc"),
                       just = "centre",
                       gp   = bold_gp)
@@ -381,12 +391,14 @@ forest.meta3L <- function(x,
                   gp   = bold_gp)
   grid::popViewport()
 
-  push_cell(header_row, pval_col)
-  grid::grid.text("p-value",
-                  x    = grid::unit(0.5, "npc"),
-                  just = "centre",
-                  gp   = bold_gp)
-  grid::popViewport()
+  if (show_pval) {
+    push_cell(header_row, pval_col)
+    grid::grid.text("p-value",
+                    x    = grid::unit(0.5, "npc"),
+                    just = "centre",
+                    gp   = bold_gp)
+    grid::popViewport()
+  }
 
   # Method summary (in CI column of header row)
   method_gp <- grid::gpar(fontface = "bold", cex = 0.65)
@@ -423,7 +435,7 @@ forest.meta3L <- function(x,
 
     # Row shading
     if (shade_mask[i]) {
-      push_span(row_i, studlab_col, pval_col)
+      push_span(row_i, studlab_col, last_col)
       draw_zebra_rect(colshade)
       grid::popViewport()
     }
@@ -510,8 +522,10 @@ forest.meta3L <- function(x,
     grid::popViewport()
 
     # p-value (empty for individual studies)
-    push_cell(row_i, pval_col)
-    grid::popViewport()
+    if (show_pval) {
+      push_cell(row_i, pval_col)
+      grid::popViewport()
+    }
   }
 
   # -------------------------------------------------------------------
@@ -583,16 +597,18 @@ forest.meta3L <- function(x,
   grid::popViewport()
 
   # Pooled p-value
-  pval_overall <- x$model$pval
-  pval_str <- if (is.na(pval_overall)) "" else
-    if (pval_overall < 0.001) "<0.001" else sprintf("%.4f", pval_overall)
-  push_cell(row_p, pval_col)
-  grid::grid.text(pval_str,
-                  x    = grid::unit(0.5, "npc"),
-                  y    = grid::unit(0.65, "npc"),
-                  just = "centre",
-                  gp   = grid::gpar(cex = 0.75, fontface = "bold"))
-  grid::popViewport()
+  if (show_pval) {
+    pval_overall <- x$model$pval
+    pval_str <- if (is.na(pval_overall)) "" else
+      if (pval_overall < 0.001) "<0.001" else sprintf("%.4f", pval_overall)
+    push_cell(row_p, pval_col)
+    grid::grid.text(pval_str,
+                    x    = grid::unit(0.5, "npc"),
+                    y    = grid::unit(0.65, "npc"),
+                    just = "centre",
+                    gp   = grid::gpar(cex = 0.75, fontface = "bold"))
+    grid::popViewport()
+  }
 
   # -------------------------------------------------------------------
   # 11b. Draw reference line (on top of data, solid black)
