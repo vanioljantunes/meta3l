@@ -127,10 +127,11 @@ META_COL_MAP <- list(
 #'   Currently reserved for future use.
 #' @param sdi Character string; column name for a single-group standard
 #'   deviation.  Currently reserved for future use.
-#' @param direction Character string naming the column in \code{data} that
-#'   indicates outcome direction (\code{"Good"} or \code{"Bad"}).  For
-#'   \code{measure = "SMD"} or \code{"MD"}, rows where this column equals
-#'   \code{"Bad"} (case-insensitive) have their computed effect size
+#' @param direction Either (a) a character string naming the column in
+#'   \code{data} that indicates outcome direction (\code{"Good"} or
+#'   \code{"Bad"}), or (b) a single scalar value \code{"Good"} or \code{"Bad"}
+#'   (case-insensitive) applied to every row.  For \code{measure = "SMD"} or
+#'   \code{"MD"}, rows flagged \code{"Bad"} have their computed effect size
 #'   (\code{yi}) multiplied by \code{-1}, so that positive values consistently
 #'   favour the experimental group.  If \code{NULL} (default), the function
 #'   auto-detects a column named \code{"direction"} in the data when all its
@@ -412,20 +413,26 @@ meta3L <- function(data,
 
   # --- 7b. Direction harmonisation (SMD/MD only) ------------------------------
   if (measure %in% c("SMD", "MD")) {
-    dir_col <- direction
-    if (is.null(dir_col) && "direction" %in% names(dat)) {
-      dir_vals <- tolower(trimws(dat[["direction"]]))
-      dir_vals <- dir_vals[!is.na(dir_vals)]
-      if (length(dir_vals) > 0L && all(dir_vals %in% c("good", "bad"))) {
-        dir_col <- "direction"
+    dir_vals <- NULL
+    if (!is.null(direction)) {
+      if (length(direction) == 1L &&
+          tolower(trimws(direction)) %in% c("good", "bad")) {
+        # Scalar: apply same direction to every row
+        dir_vals <- rep(tolower(trimws(direction)), nrow(dat))
+      } else if (length(direction) == 1L && direction %in% names(dat)) {
+        dir_vals <- tolower(trimws(dat[[direction]]))
+      } else {
+        stop("`direction` must be either \"Good\"/\"Bad\" or the name of a ",
+             "column in `data`; got '", direction, "'.", call. = FALSE)
+      }
+    } else if ("direction" %in% names(dat)) {
+      auto_vals <- tolower(trimws(dat[["direction"]]))
+      non_na <- auto_vals[!is.na(auto_vals)]
+      if (length(non_na) > 0L && all(non_na %in% c("good", "bad"))) {
+        dir_vals <- auto_vals
       }
     }
-    if (!is.null(dir_col)) {
-      if (!dir_col %in% names(dat)) {
-        stop("Direction column '", dir_col, "' not found in data.",
-             call. = FALSE)
-      }
-      dir_vals <- tolower(trimws(dat[[dir_col]]))
+    if (!is.null(dir_vals)) {
       bad <- !is.na(dir_vals) & dir_vals == "bad"
       n_flipped <- sum(bad)
       if (n_flipped > 0L) {
