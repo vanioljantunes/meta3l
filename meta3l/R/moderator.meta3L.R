@@ -49,6 +49,14 @@ moderator <- function(x, ...) {
 #' @importFrom stats anova predict
 moderator.meta3l_result <- function(x, subgroup, ...) {
 
+  # --- 0. GLMM guard -----------------------------------------------------------
+  if (x$measure == "GLMM") {
+    stop("moderator() does not support measure = 'GLMM'. ",
+         "rma.glmm does not support moderator (mods) arguments. ",
+         "Use measure = 'PLO' for moderator analyses.",
+         call. = FALSE)
+  }
+
   # --- 1. Validate subgroup column exists ------------------------------------
   if (!subgroup %in% names(x$data)) {
     stop(

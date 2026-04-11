@@ -78,13 +78,21 @@ loo_cluster.meta3l_result <- function(x,
     }
 
     tryCatch({
-      fit_loo <- metafor::rma.mv(yi, V_loo,
-                                 random = random_formula,
-                                 data   = dat_loo)
-      fit_rob <- metafor::robust(fit_loo,
-                                 cluster      = dat_loo[[x$cluster]],
-                                 clubSandwich = TRUE)
-      i2_loo  <- compute_i2(fit_loo)
+      if (x$measure == "GLMM") {
+        fit_loo <- metafor::rma.glmm(
+          xi = dat_loo$xi, ni = dat_loo$ni,
+          measure = "PLO", slab = dat_loo[[x$slab]], data = dat_loo)
+        i2_loo  <- compute_i2_glmm(fit_loo, dat_loo$vi)
+        fit_rob <- fit_loo
+      } else {
+        fit_loo <- metafor::rma.mv(yi, V_loo,
+                                   random = random_formula,
+                                   data   = dat_loo)
+        fit_rob <- metafor::robust(fit_loo,
+                                   cluster      = dat_loo[[x$cluster]],
+                                   clubSandwich = TRUE)
+        i2_loo  <- compute_i2(fit_loo)
+      }
 
       list(omitted    = as.character(cl),
            estimate   = x$transf(fit_rob$b[[1L]]),
@@ -115,9 +123,15 @@ loo_cluster.meta3l_result <- function(x,
   # x$model is the robust object; compute I2 from a fresh rma.mv on full data
   # (compute_i2 needs the raw rma.mv object's sigma2, not the robust wrapper)
   full_fit_i2 <- tryCatch({
-    compute_i2(metafor::rma.mv(yi, x$V,
-                               random = random_formula,
-                               data   = x$data))
+    if (x$measure == "GLMM") {
+      compute_i2_glmm(metafor::rma.glmm(
+        xi = x$data$xi, ni = x$data$ni,
+        measure = "PLO", slab = x$data[[x$slab]], data = x$data), x$data$vi)
+    } else {
+      compute_i2(metafor::rma.mv(yi, x$V,
+                                 random = random_formula,
+                                 data   = x$data))
+    }
   }, error = function(e) {
     list(between = NA_real_, within = NA_real_, total = NA_real_)
   })
