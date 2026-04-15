@@ -8,7 +8,11 @@ read_multisheet_excel(path = NULL)
 }
 \arguments{
 \item{path}{Character string giving the path to the Excel file
-(\code{.xlsx} or \code{.xls}). If \code{NULL} and the session is running
+(\code{.xlsx} or \code{.xls}), OR a URL to a public Google Sheets
+document. If a Google Sheets URL is provided, the sheet is exported as
+\code{data_outcome.xlsx} into the folder containing the active script
+(overwriting any existing file); if the script is unsaved, an interactive
+directory-chooser is opened. If \code{NULL} and the session is running
 inside RStudio, an interactive file-chooser dialog is opened. If
 \code{NULL} and RStudio is not available, an error is raised.}
 }
@@ -35,6 +39,11 @@ sheets <- read_multisheet_excel("path/to/data.xlsx")
 
 # Interactive selection in RStudio
 sheets <- read_multisheet_excel()
+
+# Download from a public Google Sheets URL
+sheets <- read_multisheet_excel(
+  "https://docs.google.com/spreadsheets/d/ABC123/edit#gid=0"
+)
 }
 
 }
