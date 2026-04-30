@@ -610,10 +610,27 @@ forest_subgroup.meta3L <- function(x,
   first_data_row <- current_row   # track for vertical pooled line
   study_row_index <- 0L           # global index for zebra shading
 
-  # Helper: draw overall estimate vertical line in a CI cell (per-row,
-  # so it renders in front of zebra shading but behind diamonds/squares)
+  # Helpers: draw the null-hypothesis reference line (solid black) and the
+  # overall pooled-estimate line (dashed gray) in a CI cell, per-row.
+  # Both render after zebra/squares (called at end of study rows) and
+  # before diamonds (called before diamond drawing in diamond rows), so
+  # the lines sit on top of everything except diamonds.
+  .show_refline <- !is.null(refline_final) && !is.na(refline_final) &&
+    refline_final >= xlim_final[1] && refline_final <= xlim_final[2]
   .show_ov_line <- overall && !is.na(x$estimate) &&
     x$estimate >= xlim_final[1] && x$estimate <= xlim_final[2]
+  draw_refline <- function(row) {
+    if (!.show_refline) return(invisible(NULL))
+    push_cell(row, ci_col, xscale = xlim_final, clip = "off")
+    grid::grid.segments(
+      x0 = grid::unit(refline_final, "native"),
+      x1 = grid::unit(refline_final, "native"),
+      y0 = grid::unit(0, "npc"),
+      y1 = grid::unit(1, "npc"),
+      gp = grid::gpar(lty = "solid", col = "black", lwd = 0.8)
+    )
+    grid::popViewport()
+  }
   draw_ov_line <- function(row) {
     if (!.show_ov_line) return(invisible(NULL))
     push_cell(row, ci_col, xscale = xlim_final, clip = "off")
@@ -622,9 +639,13 @@ forest_subgroup.meta3L <- function(x,
       x1 = grid::unit(x$estimate, "native"),
       y0 = grid::unit(0, "npc"),
       y1 = grid::unit(1, "npc"),
-      gp = grid::gpar(lty = "solid", col = "black", lwd = 0.8)
+      gp = grid::gpar(lty = "dashed", col = "gray50", lwd = 0.8)
     )
     grid::popViewport()
+  }
+  draw_lines <- function(row) {
+    draw_refline(row)
+    draw_ov_line(row)
   }
 
   for (gi in seq_along(levels_vec)) {
@@ -633,7 +654,7 @@ forest_subgroup.meta3L <- function(x,
     idx <- sg$idx          # indices into sorted dat
 
     # ---- Subgroup header row ----
-    draw_ov_line(current_row)
+    draw_lines(current_row)
     push_span(current_row, studlab_col, last_col)
     grid::grid.text(as.character(gv),
                     x    = grid::unit(0, "npc"),
@@ -654,24 +675,6 @@ forest_subgroup.meta3L <- function(x,
         draw_zebra_rect(colshade)
         grid::popViewport()
       }
-
-      # Reference line in CI column
-      if (!is.null(refline_final) && !is.na(refline_final)) {
-        if (refline_final >= xlim_final[1] && refline_final <= xlim_final[2]) {
-          push_cell(row_i, ci_col, xscale = xlim_final, clip = "off")
-          grid::grid.segments(
-            x0 = grid::unit(refline_final, "native"),
-            x1 = grid::unit(refline_final, "native"),
-            y0 = grid::unit(0, "npc"),
-            y1 = grid::unit(1, "npc"),
-            gp = grid::gpar(lty = "dashed", col = "gray50", lwd = 0.8)
-          )
-          grid::popViewport()
-        }
-      }
-
-      # Overall estimate vertical line (in front of zebra, behind squares)
-      draw_ov_line(row_i)
 
       # Study label
       push_cell(row_i, studlab_col)
@@ -747,6 +750,9 @@ forest_subgroup.meta3L <- function(x,
       )
       grid::popViewport()
 
+      # Vertical lines (null + pooled) on top of zebra/squares
+      draw_lines(row_i)
+
       current_row <- current_row + 1L
     }  # end study rows for this subgroup
 
@@ -803,8 +809,8 @@ forest_subgroup.meta3L <- function(x,
         grid::popViewport()
       }
 
-      # Overall estimate vertical line (behind diamond)
-      draw_ov_line(row_d)
+      # Vertical lines (null + pooled) drawn behind the diamond
+      draw_lines(row_d)
 
       # Diamond in CI panel
       if (!is.na(sg$lb) && !is.na(sg$ub)) {
@@ -847,7 +853,7 @@ forest_subgroup.meta3L <- function(x,
 
     # ---- Blank separator row (not after last subgroup) ----
     if (gi < length(levels_vec)) {
-      draw_ov_line(current_row)
+      draw_lines(current_row)
       current_row <- current_row + 1L
     }
   }  # end subgroup loop
@@ -857,7 +863,7 @@ forest_subgroup.meta3L <- function(x,
   # -------------------------------------------------------------------
   if (overall) {
     # Blank separator before overall
-    draw_ov_line(current_row)
+    draw_lines(current_row)
     current_row <- current_row + 1L
 
     row_ov <- current_row
@@ -906,7 +912,7 @@ forest_subgroup.meta3L <- function(x,
       grid::popViewport()
     }
 
-    draw_ov_line(row_ov)
+    draw_lines(row_ov)
 
     push_cell(row_ov, ci_col, xscale = xlim_final, clip = "on")
     draw_diamond(x$ci.lb, x$estimate, x$ci.ub, y_center = 0.65)
