@@ -174,7 +174,7 @@ loo_effect.meta3l_result <- function(x,
   has_wrapped_loo <- FALSE
   if (n_ilab > 0L) {
     for (col in ilab_avail) {
-      if (any(nchar(as.character(tbl[[col]])) > 15L)) has_wrapped_loo <- TRUE
+      if (any(nchar(as.character(tbl[[col]])) > 15L, na.rm = TRUE)) has_wrapped_loo <- TRUE
     }
   }
   # header + data rows + axis + favours + title = n_rows + 4

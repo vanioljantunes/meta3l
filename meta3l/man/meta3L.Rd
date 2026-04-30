@@ -64,10 +64,11 @@ identifies study clusters (level 3).  Defaults to \code{"studlab"}.}
 confidence limits.  If \code{NULL} (default), the transformation is
 resolved automatically from \code{measure}.}
 
-\item{direction}{Character string naming the column in \code{data} that
-indicates outcome direction (\code{"Good"} or \code{"Bad"}).  For
-\code{measure = "SMD"} or \code{"MD"}, rows where this column equals
-\code{"Bad"} (case-insensitive) have their computed effect size
+\item{direction}{Either (a) a character string naming the column in
+\code{data} that indicates outcome direction (\code{"Good"} or
+\code{"Bad"}), or (b) a single scalar value \code{"Good"} or \code{"Bad"}
+(case-insensitive) applied to every row.  For \code{measure = "SMD"} or
+\code{"MD"}, rows flagged \code{"Bad"} have their computed effect size
 (\code{yi}) multiplied by \code{-1}, so that positive values consistently
 favour the experimental group.  If \code{NULL} (default), the function
 auto-detects a column named \code{"direction"} in the data when all its
