@@ -13,7 +13,11 @@
   group.c = NULL,
   ilab = NULL,
   ilab.lab = NULL,
-  shade = "zebra"
+  shade = "zebra",
+  xlim_ref = NULL,
+  title = NULL,
+  orig_data = NULL,
+  orig_cluster = NULL
 )
 }
 \arguments{

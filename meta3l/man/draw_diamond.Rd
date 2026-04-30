@@ -4,7 +4,15 @@
 \alias{draw_diamond}
 \title{Draw a pooled-estimate diamond (internal)}
 \usage{
-draw_diamond(lb, est, ub, hh = 0.35, col = "darkgray", col_border = "black")
+draw_diamond(
+  lb,
+  est,
+  ub,
+  hh = 0.35,
+  y_center = 0.5,
+  col = "darkgray",
+  col_border = "black"
+)
 }
 \arguments{
 \item{lb}{Numeric; left x position (lower CI bound) in native coordinates.}
