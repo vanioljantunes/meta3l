@@ -161,11 +161,12 @@ resolve_file <- function(x, file, format, suffix = "") {
 #'
 #' @keywords internal
 auto_dims <- function(n, user_w = NULL, user_h = NULL, n_ilab = 0L,
-                      has_wrapped = FALSE) {
+                      has_wrapped = FALSE, res = 300L) {
+  scale  <- res / 300L
   row_px <- if (has_wrapped) 120L else 80L
   list(
-    width  = if (!is.null(user_w)) user_w else 3000L + as.integer(n_ilab) * 200L,
-    height = if (!is.null(user_h)) user_h else max(900L, 400L + n * row_px)
+    width  = if (!is.null(user_w)) user_w else as.integer((3000L + as.integer(n_ilab) * 200L) * scale),
+    height = if (!is.null(user_h)) user_h else as.integer(max(900L, 400L + n * row_px) * scale)
   )
 }
 
