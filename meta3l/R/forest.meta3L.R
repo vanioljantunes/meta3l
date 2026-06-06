@@ -81,6 +81,7 @@ forest.meta3L <- function(x,
                           format      = "png",
                           width       = NULL,
                           height      = NULL,
+                          res         = 300L,
                           ...) {
 
   # -------------------------------------------------------------------
@@ -268,9 +269,9 @@ forest.meta3L <- function(x,
   total_cm <- studlab_w + ilab_cm +
     (if (showweights) weight_w else 0) + 2 * gap_w + ci_cm + results_w +
     (if (show_pval) pval_w else 0)
-  auto_w   <- as.integer(total_cm * 300 / 2.54) + 300L
+  auto_w   <- as.integer(total_cm * res / 2.54) + as.integer(res)
   dims     <- auto_dims(total_rows, width, height,
-                         has_wrapped = has_wrapped)
+                         has_wrapped = has_wrapped, res = res)
   if (is.null(width)) dims$width <- max(dims$width, auto_w)
 
   if (!is.null(out_file)) {
@@ -282,7 +283,7 @@ forest.meta3L <- function(x,
       grDevices::png(out_file,
                      width  = dims$width,
                      height = dims$height,
-                     res    = 300L)
+                     res    = as.integer(res))
     }
   } else {
     grDevices::pdf(nullfile(),
