@@ -11,5 +11,10 @@ Provides a clean, single-call API for conducting three-level meta-analyses using
 \author{
 \strong{Maintainer}: Thais Author \email{author@example.com}
 
+Authors:
+\itemize{
+  \item Thais Author \email{author@example.com}
+}
+
 }
 \keyword{internal}

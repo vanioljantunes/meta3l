@@ -4,7 +4,14 @@
 \alias{auto_dims}
 \title{Compute default plot dimensions from study count (internal)}
 \usage{
-auto_dims(n, user_w = NULL, user_h = NULL, n_ilab = 0L, has_wrapped = FALSE)
+auto_dims(
+  n,
+  user_w = NULL,
+  user_h = NULL,
+  n_ilab = 0L,
+  has_wrapped = FALSE,
+  res = 300L
+)
 }
 \arguments{
 \item{n}{Integer; number of studies.}
