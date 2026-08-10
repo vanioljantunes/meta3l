@@ -10,7 +10,6 @@ Description: Provides a clean, single-call API for conducting three-level meta-a
     standardized mean differences), and produces publication-quality forest plots.
 License: MIT + file LICENSE
 Encoding: UTF-8
-RoxygenNote: 7.3.3
 Depends:
     R (>= 4.0.0)
 Imports:
@@ -26,3 +25,4 @@ Suggests:
     rmarkdown
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

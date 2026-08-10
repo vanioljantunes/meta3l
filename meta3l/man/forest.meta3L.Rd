@@ -22,6 +22,7 @@
   format = "png",
   width = NULL,
   height = NULL,
+  res = 300L,
   ...
 )
 }
