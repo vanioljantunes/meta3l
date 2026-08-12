@@ -590,7 +590,11 @@ forest.meta3l_bind <- function(x,
   if (measure %in% c("SMD", "MD", "RR", "OR")) n_total_rows <- n_total_rows + 1L
   if (!is.null(title) && nzchar(title)) n_total_rows <- n_total_rows + 1L
   if (!is.null(xlab))                   n_total_rows <- n_total_rows + 1L
-  n_total_rows <- n_total_rows + length(foot)
+  # The footnote sits in the empty text columns beside the axis, so it hugs the
+  # last information row instead of floating below the whole figure.  Extra rows
+  # are only needed when it is longer than the axis / favours / title / xlab
+  # block it shares; that count is settled once the column widths are known.
+  n_tail_rows <- n_total_rows - (n_head_rows + n_body_rows)
 
   # -------------------------------------------------------------------
   # 3. Column layout
@@ -675,6 +679,29 @@ forest.meta3l_bind <- function(x,
 
   other_cm <- sum(col_widths_cm)
   ci_cm    <- max(min(7, other_cm * 0.6), 4)
+
+  # Wrap the footnote to the text columns it is drawn in (roughly 0.115 cm per
+  # character at cex 0.65) and settle the final row count
+  if (length(foot) > 0L) {
+    foot_cm    <- sum(col_widths_cm[label_col:gap1_col])
+    foot_chars <- max(40L, as.integer(foot_cm / 0.14))
+    foot <- unlist(lapply(foot, function(line) {
+      words <- strsplit(line, " ", fixed = TRUE)[[1L]]
+      out <- character(0)
+      cur <- ""
+      for (w in words) {
+        cand <- if (nzchar(cur)) paste(cur, w) else w
+        if (nchar(cand) > foot_chars && nzchar(cur)) {
+          out <- c(out, cur)
+          cur <- w
+        } else {
+          cur <- cand
+        }
+      }
+      c(out, cur)
+    }), use.names = FALSE)
+  }
+  n_total_rows <- n_total_rows + max(0L, length(foot) - n_tail_rows)
 
   col_units_list <- vector("list", n_cols)
   for (j in seq_len(n_cols)) {
@@ -935,11 +962,13 @@ forest.meta3l_bind <- function(x,
     # --- Estimate row -------------------------------------------------
     row_seq <- row_seq + 1L
     is_overall <- identical(r$kind[i], "overall")
-    txt_gp <- if (is_overall) bold_gp else norm_gp
+    # Values stay in the regular weight - only the row label marks a pooled row
+    txt_gp <- norm_gp
+    lbl_gp <- if (is_overall) bold_gp else norm_gp
 
     push_cell(row_i, label_col)
     grid::grid.text(all_labels[i], x = grid::unit(0, "npc"),
-                    y = grid::unit(0.6, "npc"), just = "left", gp = txt_gp)
+                    y = grid::unit(0.6, "npc"), just = "left", gp = lbl_gp)
     grid::popViewport()
 
     cell_text <- function(col, txt) {
@@ -1115,12 +1144,15 @@ forest.meta3l_bind <- function(x,
     current_row <- current_row + 1L
   }
 
+  # Footnote: left text columns of the axis row onwards, so it starts directly
+  # under the last information row
+  foot_row <- n_head_rows + n_body_rows + 1L
   for (line in foot) {
-    push_span(current_row, label_col, last_col)
-    grid::grid.text(line, x = grid::unit(0, "npc"), just = "left",
-                    gp = small_gp)
+    push_span(foot_row, label_col, gap1_col, clip = "on")
+    grid::grid.text(line, x = grid::unit(0, "npc"), y = grid::unit(0.6, "npc"),
+                    just = "left", gp = small_gp)
     grid::popViewport()
-    current_row <- current_row + 1L
+    foot_row <- foot_row + 1L
   }
 
   grid::popViewport()
