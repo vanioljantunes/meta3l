@@ -367,7 +367,11 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
         if (isTRUE(qtest) && length(lv) > 1L) {
           qp <- bind_qtest(x, sg_col)
           if (!is.na(qp)) {
-            q_note <- sprintf("Test for subgroup differences: p = %.3f", qp)
+            q_note <- if (qp < 0.001) {
+              "Test for subgroup differences: p < 0.001"
+            } else {
+              sprintf("Test for subgroup differences: p = %.3f", qp)
+            }
           }
         }
         rows[[length(rows) + 1L]] <- make_row(bl, "sub", as.character(sg_col),
@@ -493,8 +497,8 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #' @param showi2 Logical; show the I-squared column (default \code{TRUE}).
 #' @param showi2.parts Logical; also show the between- and within-cluster
 #'   I-squared columns (default \code{TRUE}).
-#' @param shade One of \code{"block"} (default, alternate blocks shaded),
-#'   \code{"zebra"} (alternate rows) or \code{"none"}.
+#' @param shade One of \code{"zebra"} (default, alternate estimate rows shaded),
+#'   \code{"block"} (alternate analyses shaded) or \code{"none"}.
 #' @param colshade Colour used for shading.
 #' @param squaresize Numeric scaling factor for the subgroup-level squares.
 #' @param digits Integer; digits for estimates and confidence limits.
@@ -524,7 +528,7 @@ forest.meta3l_bind <- function(x,
                                showk        = TRUE,
                                showi2       = TRUE,
                                showi2.parts = TRUE,
-                               shade        = "block",
+                               shade        = "zebra",
                                colshade     = rgb(0.92, 0.92, 0.92),
                                squaresize   = 1,
                                digits       = 2L,
@@ -738,14 +742,14 @@ forest.meta3l_bind <- function(x,
   # them; otherwise grid centres the layout and the outer rows fall off the
   # canvas.
   rh <- rep(1.2, n_total_rows)
-  if (n_head_rows == 2L) rh[1L] <- 1.4                # "Patients" group header
-  rh[n_head_rows] <- 1.8                              # column header row
+  if (n_head_rows == 2L) rh[1L] <- 1.1                # "Patients" group header
+  rh[n_head_rows] <- 1.6                              # column header row
   for (p in seq_along(plan)) {
     kind <- plan[[p]]$kind
-    if (identical(kind, "row"))   rh[n_head_rows + p] <- 1.8
-    if (identical(kind, "sub"))   rh[n_head_rows + p] <- 1.9
-    if (identical(kind, "block")) rh[n_head_rows + p] <- 1.6
-    if (identical(kind, "gap"))   rh[n_head_rows + p] <- 0.6
+    if (identical(kind, "row"))   rh[n_head_rows + p] <- 1.15
+    if (identical(kind, "sub"))   rh[n_head_rows + p] <- 1.25
+    if (identical(kind, "block")) rh[n_head_rows + p] <- 1.35
+    if (identical(kind, "gap"))   rh[n_head_rows + p] <- 0.35
   }
 
   out_file <- resolve_file(x, file, format)
@@ -945,14 +949,20 @@ forest.meta3l_bind <- function(x,
     }
 
     if (identical(kind, "sub")) {
-      push_span(row_i, label_col, gap1_col)
+      push_span(row_i, label_col, gap1_col, clip = "on")
       grid::grid.text(all_labels[i], x = grid::unit(0, "npc"),
-                      y = grid::unit(0.62, "npc"), just = "left",
+                      y = grid::unit(0.5, "npc"), just = "left",
                       gp = grid::gpar(cex = 0.72, fontface = "bold"))
       if (nzchar(r$note[i])) {
-        grid::grid.text(paste0("      ", r$note[i]), x = grid::unit(0, "npc"),
-                        y = grid::unit(0.22, "npc"), just = "left",
-                        gp = small_gp)
+        # Offset by the rendered width of the heading (~0.16 cm per bold
+        # character at cex 0.72) plus a gap
+        grid::grid.text(
+          r$note[i],
+          x    = grid::unit(nchar(all_labels[i]) * 0.16 + 0.5, "cm"),
+          y    = grid::unit(0.5, "npc"),
+          just = "left",
+          gp   = small_gp
+        )
       }
       grid::popViewport()
       draw_refline(row_i)
@@ -968,14 +978,14 @@ forest.meta3l_bind <- function(x,
 
     push_cell(row_i, label_col)
     grid::grid.text(all_labels[i], x = grid::unit(0, "npc"),
-                    y = grid::unit(0.6, "npc"), just = "left", gp = lbl_gp)
+                    y = grid::unit(0.5, "npc"), just = "left", gp = lbl_gp)
     grid::popViewport()
 
     cell_text <- function(col, txt) {
       if (is.na(col) || !nzchar(txt)) return(invisible(NULL))
       push_cell(row_i, col)
       grid::grid.text(txt, x = grid::unit(0.5, "npc"),
-                      y = grid::unit(0.6, "npc"), just = "centre", gp = txt_gp)
+                      y = grid::unit(0.5, "npc"), just = "centre", gp = txt_gp)
       grid::popViewport()
     }
 
@@ -1004,7 +1014,7 @@ forest.meta3l_bind <- function(x,
           max(r$lb[i], xlim_final[1]),
           min(max(r$est[i], xlim_final[1]), xlim_final[2]),
           min(r$ub[i], xlim_final[2]),
-          y_center = 0.6
+          y_center = 0.5
         )
         # Flag a diamond whose interval runs past the panel, otherwise the
         # clipped tip reads as a genuine end point
@@ -1017,8 +1027,8 @@ forest.meta3l_bind <- function(x,
           grid::grid.segments(
             x0    = grid::unit(inner, "native"),
             x1    = grid::unit(edge, "native"),
-            y0    = grid::unit(0.6, "npc"),
-            y1    = grid::unit(0.6, "npc"),
+            y0    = grid::unit(0.5, "npc"),
+            y1    = grid::unit(0.5, "npc"),
             arrow = grid::arrow(ends = "last",
                                 length = grid::unit(0.05, "inches")),
             gp    = grid::gpar(lwd = 1)
@@ -1035,8 +1045,8 @@ forest.meta3l_bind <- function(x,
           grid::grid.segments(
             x0    = grid::unit(lb_draw, "native"),
             x1    = grid::unit(ub_draw, "native"),
-            y0    = grid::unit(0.6, "npc"),
-            y1    = grid::unit(0.6, "npc"),
+            y0    = grid::unit(0.5, "npc"),
+            y1    = grid::unit(0.5, "npc"),
             arrow = grid::arrow(ends = arrow_ends,
                                 length = grid::unit(0.05, "inches")),
             gp    = grid::gpar(lwd = 1)
@@ -1045,15 +1055,15 @@ forest.meta3l_bind <- function(x,
           grid::grid.segments(
             x0 = grid::unit(lb_draw, "native"),
             x1 = grid::unit(ub_draw, "native"),
-            y0 = grid::unit(0.6, "npc"),
-            y1 = grid::unit(0.6, "npc"),
+            y0 = grid::unit(0.5, "npc"),
+            y1 = grid::unit(0.5, "npc"),
             gp = grid::gpar(lwd = 1)
           )
         }
         if (r$est[i] >= xlim_final[1] && r$est[i] <= xlim_final[2]) {
           grid::grid.rect(
             x      = grid::unit(r$est[i], "native"),
-            y      = grid::unit(0.6, "npc"),
+            y      = grid::unit(0.5, "npc"),
             width  = grid::unit(0.55 * squaresize, "lines"),
             height = grid::unit(0.55 * squaresize, "lines"),
             just   = "centre",
@@ -1065,7 +1075,7 @@ forest.meta3l_bind <- function(x,
 
       push_cell(row_i, results_col)
       grid::grid.text(sprintf(fmt_est, r$est[i], r$lb[i], r$ub[i]),
-                      x = grid::unit(0.5, "npc"), y = grid::unit(0.6, "npc"),
+                      x = grid::unit(0.5, "npc"), y = grid::unit(0.5, "npc"),
                       just = "centre", gp = txt_gp)
       grid::popViewport()
 
@@ -1076,7 +1086,7 @@ forest.meta3l_bind <- function(x,
     } else {
       push_cell(row_i, results_col)
       grid::grid.text("not estimable", x = grid::unit(0.5, "npc"),
-                      y = grid::unit(0.6, "npc"), just = "centre",
+                      y = grid::unit(0.5, "npc"), just = "centre",
                       gp = small_gp)
       grid::popViewport()
     }
@@ -1149,7 +1159,7 @@ forest.meta3l_bind <- function(x,
   foot_row <- n_head_rows + n_body_rows + 1L
   for (line in foot) {
     push_span(foot_row, label_col, gap1_col, clip = "on")
-    grid::grid.text(line, x = grid::unit(0, "npc"), y = grid::unit(0.6, "npc"),
+    grid::grid.text(line, x = grid::unit(0, "npc"), y = grid::unit(0.5, "npc"),
                     just = "left", gp = small_gp)
     grid::popViewport()
     foot_row <- foot_row + 1L
