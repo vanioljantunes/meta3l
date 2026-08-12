@@ -6,15 +6,21 @@
 \usage{
 \method{forest}{meta3l_bind}(
   x,
+  analysis.lab = "Outcome",
   refline = NULL,
   xlim = NULL,
+  xlim.trim = 0.95,
   at = NULL,
   xlab = NULL,
   title = NULL,
+  add.text = TRUE,
+  showpatients = TRUE,
   showk = TRUE,
   showi2 = TRUE,
+  showi2.parts = TRUE,
   shade = "block",
   colshade = rgb(0.92, 0.92, 0.92),
+  squaresize = 1,
   digits = 2L,
   file = character(0),
   format = "png",
@@ -26,11 +32,20 @@
 \arguments{
 \item{x}{A \code{meta3l_bind} object returned by \code{\link{metabind}}.}
 
+\item{analysis.lab}{Character string; header of the first column.  Defaults
+to \code{"Outcome"}.}
+
 \item{refline}{Numeric scalar; x position of the vertical reference line.
 \code{NULL} auto-derives from the measure.}
 
 \item{xlim}{Numeric vector of length 2; x-axis limits.  \code{NULL}
 auto-computes from the pooled estimates and their confidence limits.}
+
+\item{xlim.trim}{Numeric in (0, 1]; quantile of the confidence bounds the
+automatic x-axis has to cover.  The default \code{0.95} keeps one very
+imprecise subgroup from stretching the axis until every other interval is
+unreadable; intervals reaching past the limits get arrow heads.  Set to
+\code{1} to cover every bound, or pass \code{xlim} to fix the limits.}
 
 \item{at}{Numeric vector; tick positions.  \code{NULL} uses
 \code{pretty(xlim, n = 5)}.}
@@ -39,15 +54,28 @@ auto-computes from the pooled estimates and their confidence limits.}
 
 \item{title}{Character string; plot title drawn below the axis.}
 
+\item{add.text}{Footnote describing the model, drawn under the plot.
+\code{TRUE} (default) composes it from the object, \code{FALSE} omits it,
+and a character vector is printed verbatim, one line per element.}
+
+\item{showpatients}{Logical; show the patient-count columns (default
+\code{TRUE}).  For two-arm measures the two columns are labelled with the
+group names and grouped under a \code{Patients} header.}
+
 \item{showk}{Logical; show the "Studies" and "Effects" columns
 (default \code{TRUE}).}
 
 \item{showi2}{Logical; show the I-squared column (default \code{TRUE}).}
 
+\item{showi2.parts}{Logical; also show the between- and within-cluster
+I-squared columns (default \code{TRUE}).}
+
 \item{shade}{One of \code{"block"} (default, alternate blocks shaded),
 \code{"zebra"} (alternate rows) or \code{"none"}.}
 
 \item{colshade}{Colour used for shading.}
+
+\item{squaresize}{Numeric scaling factor for the subgroup-level squares.}
 
 \item{digits}{Integer; digits for estimates and confidence limits.}
 
@@ -67,8 +95,8 @@ Invisibly returns the file path of the saved plot, or \code{NULL}
   when \code{file = NULL}.
 }
 \description{
-Draws one diamond per pooled estimate collected by \code{\link{metabind}}:
-one block per analysis, with the overall row and (when requested) one row per
-subgroup level.  No study-level rows are drawn - use
-\code{\link{forest_subgroup}} for those.
+Draws one mark per pooled estimate collected by \code{\link{metabind}}: a
+diamond for the pooled estimate of each analysis and a square for each
+subgroup level, grouped under the subgroup category it belongs to.  No
+study-level rows are drawn - use \code{\link{forest_subgroup}} for those.
 }

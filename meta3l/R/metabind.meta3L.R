@@ -125,6 +125,56 @@ bind_qtest <- function(x, subgroup) {
   if (is.null(res_mod)) NA_real_ else as.numeric(res_mod$QMp)
 }
 
+#' Count patients behind a set of effect sizes without double counting (internal)
+#'
+#' A three-level data set repeats the same patients across the effect sizes of
+#' one cluster (e.g. left and right measurements of the same participants), so
+#' summing the sample-size column over rows inflates the count.  With
+#' \code{method = "max"} the largest sample size reported by each cluster is
+#' taken once and those cluster totals are summed; \code{method = "sum"}
+#' restores the naive row-wise sum for data sets whose rows really are disjoint
+#' patient groups.
+#'
+#' @param dat     Data frame; the rows to count (already subset).
+#' @param cluster Character string; name of the cluster column in \code{dat}.
+#' @param measure Character string; the effect size measure, used to pick the
+#'   sample-size columns.
+#' @param method  \code{"max"} (default) or \code{"sum"}.
+#'
+#' @return A named numeric vector \code{c(e = ..., c = ...)}.  For single-arm
+#'   measures the control element is \code{NA_real_}.
+#'
+#' @keywords internal
+bind_patients <- function(dat, cluster, measure, method = c("max", "sum")) {
+  method <- match.arg(method)
+
+  pick <- function(cands) {
+    hit <- cands[cands %in% names(dat)]
+    if (length(hit) == 0L) return(NULL)
+    v <- suppressWarnings(as.numeric(dat[[hit[1L]]]))
+    if (all(is.na(v))) NULL else v
+  }
+
+  if (is_single_arm(measure)) {
+    cols <- list(e = pick(c("n", "ni")), c = NULL)
+  } else {
+    cols <- list(e = pick(c("n.e", "n1i")), c = pick(c("n.c", "n2i")))
+  }
+
+  count_one <- function(v) {
+    if (is.null(v)) return(NA_real_)
+    if (identical(method, "sum")) return(sum(v, na.rm = TRUE))
+    cl <- dat[[cluster]]
+    per <- vapply(unique(cl), function(k) {
+      vals <- v[cl == k]
+      if (all(is.na(vals))) NA_real_ else max(vals, na.rm = TRUE)
+    }, numeric(1L))
+    sum(per, na.rm = TRUE)
+  }
+
+  c(e = count_one(cols$e), c = count_one(cols$c))
+}
+
 # ---------------------------------------------------------------------------
 # metabind()
 # ---------------------------------------------------------------------------
@@ -141,21 +191,33 @@ bind_qtest <- function(x, subgroup) {
 #' Every analysis must share the same \code{measure}; mixing measures on one
 #' axis is refused.
 #'
+#' Within an analysis the subgroup categories are listed first, each as its own
+#' sub-heading with the omnibus test for subgroup differences, and the pooled
+#' estimate of the whole analysis closes the block.  Set
+#' \code{overall.first = TRUE} to put the pooled estimate on top instead.
+#'
 #' @param ... Two or more \code{meta3l_result} objects, or a single (optionally
 #'   named) list of them.  Names, when present, become the block labels;
 #'   otherwise the \code{name} field of each result is used.
 #' @param subgroup Character vector of column names to break each analysis down
-#'   by (e.g. \code{c("side", "intervention")}).  A column absent from a given
-#'   analysis is skipped with a warning.  \code{NULL} (default) produces one row
-#'   per analysis.
+#'   by (e.g. \code{c("side", "intervention")}).  Several categories per
+#'   analysis are allowed and each gets its own sub-heading.  A column absent
+#'   from a given analysis is skipped with a warning.  \code{NULL} (default)
+#'   produces one row per analysis.
 #' @param labels Character vector of block labels, one per analysis.  Overrides
 #'   list names and \code{name} fields.
 #' @param overall Logical; include the whole-analysis pooled row in each block
 #'   (default \code{TRUE}).  When \code{subgroup} is \code{NULL} this is the only
 #'   row a block has and the argument is ignored.
+#' @param overall.first Logical; draw the pooled row before its subgroup
+#'   categories instead of after them (default \code{FALSE}).
 #' @param qtest Logical; compute the omnibus test for subgroup differences for
 #'   each subgroup column (default \code{TRUE}).  Ignored when \code{subgroup}
 #'   is \code{NULL}.
+#' @param patients.method How to count patients without double counting those
+#'   who contribute several effect sizes: \code{"max"} (default) takes the
+#'   largest sample size per cluster, \code{"sum"} adds the rows up.  See
+#'   \code{bind_patients}.
 #' @param name Character string; base name used for auto-generated plot file
 #'   names.  Defaults to \code{"metabind"}.
 #'
@@ -163,8 +225,10 @@ bind_qtest <- function(x, subgroup) {
 #'   \describe{
 #'     \item{rows}{Data frame with one row per printed line: \code{block},
 #'       \code{type} (\code{"block"}, \code{"sub"} or \code{"row"}),
+#'       \code{kind} (\code{"overall"} or \code{"level"} for estimate rows),
 #'       \code{label}, \code{est}, \code{lb}, \code{ub}, \code{pval},
-#'       \code{k_eff}, \code{k_clust}, \code{i2}, \code{note}.}
+#'       \code{k_eff}, \code{k_clust}, \code{i2}, \code{i2b}, \code{i2w},
+#'       \code{n_e}, \code{n_c}, \code{note}.}
 #'     \item{measure}{The shared effect size measure.}
 #'     \item{rho}{Vector of \code{rho} values, one per analysis.}
 #'     \item{group.e, group.c}{Group labels taken from the first analysis.}
@@ -183,13 +247,16 @@ bind_qtest <- function(x, subgroup) {
 #'   Putamen  = r_putamen,
 #'   Caudate  = r_caudate,
 #'   Thalamus = r_thalamus,
-#'   subgroup = "side"
+#'   subgroup = c("side", "intervention")
 #' )
 #' print(mb)
-#' forest(mb, title = "Brain copper by region", file = character(0))
+#' forest(mb, analysis.lab = "Region", title = "QSM", file = character(0))
 #' }
 metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
-                     qtest = TRUE, name = "metabind") {
+                     overall.first = FALSE, qtest = TRUE,
+                     patients.method = c("max", "sum"), name = "metabind") {
+
+  patients.method <- match.arg(patients.method)
 
   objs <- list(...)
   if (length(objs) == 1L && is.list(objs[[1L]]) &&
@@ -232,10 +299,12 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
   }
 
   # --- Build rows -----------------------------------------------------------
-  make_row <- function(block, type, label, fit = NULL, note = "") {
+  make_row <- function(block, type, label, kind = "", fit = NULL,
+                       pat = c(e = NA_real_, c = NA_real_), note = "") {
     data.frame(
       block   = block,
       type    = type,
+      kind    = kind,
       label   = label,
       est     = if (is.null(fit)) NA_real_ else fit$est,
       lb      = if (is.null(fit)) NA_real_ else fit$lb,
@@ -244,6 +313,10 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
       k_eff   = if (is.null(fit)) NA_integer_ else as.integer(fit$k_eff),
       k_clust = if (is.null(fit)) NA_integer_ else as.integer(fit$k_clust),
       i2      = if (is.null(fit)) NA_real_ else fit$i2$total,
+      i2b     = if (is.null(fit)) NA_real_ else fit$i2$between,
+      i2w     = if (is.null(fit)) NA_real_ else fit$i2$within,
+      n_e     = unname(pat[["e"]]),
+      n_c     = unname(pat[["c"]]),
       note    = note,
       stringsAsFactors = FALSE
     )
@@ -257,6 +330,7 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
 
     rows[[length(rows) + 1L]] <- make_row(bl, "block", bl)
 
+    overall_row <- NULL
     if (isTRUE(overall) || is.null(subgroup)) {
       fit_ov <- list(
         est     = x$estimate,
@@ -268,7 +342,14 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
         k_clust = length(unique(x$data[[x$cluster]])),
         ok      = TRUE
       )
-      rows[[length(rows) + 1L]] <- make_row(bl, "row", "Overall", fit_ov)
+      overall_row <- make_row(
+        bl, "row", "Overall", kind = "overall", fit = fit_ov,
+        pat = bind_patients(x$data, x$cluster, x$measure, patients.method)
+      )
+    }
+
+    if (!is.null(overall_row) && isTRUE(overall.first)) {
+      rows[[length(rows) + 1L]] <- overall_row
     }
 
     if (!is.null(subgroup)) {
@@ -296,11 +377,17 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
           idx <- which(x$data[[sg_col]] == l)
           fit <- bind_fit_subset(x, idx)
           rows[[length(rows) + 1L]] <- make_row(
-            bl, "row", as.character(l), fit,
+            bl, "row", as.character(l), kind = "level", fit = fit,
+            pat  = bind_patients(x$data[idx, , drop = FALSE], x$cluster,
+                                 x$measure, patients.method),
             note = if (fit$ok) "" else "not estimable"
           )
         }
       }
+    }
+
+    if (!is.null(overall_row) && !isTRUE(overall.first)) {
+      rows[[length(rows) + 1L]] <- overall_row
     }
   }
 
@@ -339,11 +426,12 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
 print.meta3l_bind <- function(x, digits = 2L, ...) {
   cat("Combined three-level meta-analysis (", x$measure, ")\n\n", sep = "")
   r <- x$rows
+  fmt_n <- function(v) if (is.na(v)) "-" else format(round(v))
   for (i in seq_len(nrow(r))) {
     if (r$type[i] == "block") {
       cat(r$label[i], "\n", sep = "")
     } else if (r$type[i] == "sub") {
-      cat("  by ", r$label[i],
+      cat("  Subgroup: ", r$label[i],
           if (nzchar(r$note[i])) paste0("   (", r$note[i], ")") else "",
           "\n", sep = "")
     } else {
@@ -353,10 +441,15 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
         sprintf("%.*f [%.*f; %.*f]", digits, r$est[i], digits, r$lb[i],
                 digits, r$ub[i])
       }
-      cat(sprintf("    %-24s %-26s k = %-4s I2 = %s\n",
-                  r$label[i], est_txt,
-                  ifelse(is.na(r$k_clust[i]), "-", r$k_clust[i]),
-                  ifelse(is.na(r$i2[i]), "-", sprintf("%.0f%%", r$i2[i]))))
+      cat(sprintf(
+        "    %-22s %-26s k = %-4s n = %s/%s  I2 = %s (btw %s, wth %s)\n",
+        r$label[i], est_txt,
+        ifelse(is.na(r$k_clust[i]), "-", r$k_clust[i]),
+        fmt_n(r$n_e[i]), fmt_n(r$n_c[i]),
+        ifelse(is.na(r$i2[i]),  "-", sprintf("%.0f%%", r$i2[i])),
+        ifelse(is.na(r$i2b[i]), "-", sprintf("%.0f%%", r$i2b[i])),
+        ifelse(is.na(r$i2w[i]), "-", sprintf("%.0f%%", r$i2w[i]))
+      ))
     }
   }
   invisible(x)
@@ -368,26 +461,42 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 
 #' Summary forest plot for combined three-level meta-analyses
 #'
-#' Draws one diamond per pooled estimate collected by \code{\link{metabind}}:
-#' one block per analysis, with the overall row and (when requested) one row per
-#' subgroup level.  No study-level rows are drawn - use
-#' \code{\link{forest_subgroup}} for those.
+#' Draws one mark per pooled estimate collected by \code{\link{metabind}}: a
+#' diamond for the pooled estimate of each analysis and a square for each
+#' subgroup level, grouped under the subgroup category it belongs to.  No
+#' study-level rows are drawn - use \code{\link{forest_subgroup}} for those.
 #'
 #' @param x A \code{meta3l_bind} object returned by \code{\link{metabind}}.
+#' @param analysis.lab Character string; header of the first column.  Defaults
+#'   to \code{"Outcome"}.
 #' @param refline Numeric scalar; x position of the vertical reference line.
 #'   \code{NULL} auto-derives from the measure.
 #' @param xlim Numeric vector of length 2; x-axis limits.  \code{NULL}
 #'   auto-computes from the pooled estimates and their confidence limits.
+#' @param xlim.trim Numeric in (0, 1]; quantile of the confidence bounds the
+#'   automatic x-axis has to cover.  The default \code{0.95} keeps one very
+#'   imprecise subgroup from stretching the axis until every other interval is
+#'   unreadable; intervals reaching past the limits get arrow heads.  Set to
+#'   \code{1} to cover every bound, or pass \code{xlim} to fix the limits.
 #' @param at Numeric vector; tick positions.  \code{NULL} uses
 #'   \code{pretty(xlim, n = 5)}.
 #' @param xlab Character string; x-axis label.  \code{NULL} omits it.
 #' @param title Character string; plot title drawn below the axis.
+#' @param add.text Footnote describing the model, drawn under the plot.
+#'   \code{TRUE} (default) composes it from the object, \code{FALSE} omits it,
+#'   and a character vector is printed verbatim, one line per element.
+#' @param showpatients Logical; show the patient-count columns (default
+#'   \code{TRUE}).  For two-arm measures the two columns are labelled with the
+#'   group names and grouped under a \code{Patients} header.
 #' @param showk Logical; show the "Studies" and "Effects" columns
 #'   (default \code{TRUE}).
 #' @param showi2 Logical; show the I-squared column (default \code{TRUE}).
+#' @param showi2.parts Logical; also show the between- and within-cluster
+#'   I-squared columns (default \code{TRUE}).
 #' @param shade One of \code{"block"} (default, alternate blocks shaded),
 #'   \code{"zebra"} (alternate rows) or \code{"none"}.
 #' @param colshade Colour used for shading.
+#' @param squaresize Numeric scaling factor for the subgroup-level squares.
 #' @param digits Integer; digits for estimates and confidence limits.
 #' @param file One of: \code{character(0)} (default, auto-name); \code{NULL}
 #'   (display only); or an explicit file path.
@@ -403,34 +512,63 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #' @method forest meta3l_bind
 #' @export
 forest.meta3l_bind <- function(x,
-                               refline  = NULL,
-                               xlim     = NULL,
-                               at       = NULL,
-                               xlab     = NULL,
-                               title    = NULL,
-                               showk    = TRUE,
-                               showi2   = TRUE,
-                               shade    = "block",
-                               colshade = rgb(0.92, 0.92, 0.92),
-                               digits   = 2L,
-                               file     = character(0),
-                               format   = "png",
-                               width    = NULL,
-                               height   = NULL,
+                               analysis.lab = "Outcome",
+                               refline      = NULL,
+                               xlim         = NULL,
+                               xlim.trim    = 0.95,
+                               at           = NULL,
+                               xlab         = NULL,
+                               title        = NULL,
+                               add.text     = TRUE,
+                               showpatients = TRUE,
+                               showk        = TRUE,
+                               showi2       = TRUE,
+                               showi2.parts = TRUE,
+                               shade        = "block",
+                               colshade     = rgb(0.92, 0.92, 0.92),
+                               squaresize   = 1,
+                               digits       = 2L,
+                               file         = character(0),
+                               format       = "png",
+                               width        = NULL,
+                               height       = NULL,
                                ...) {
 
   stopifnot(inherits(x, "meta3l_bind"))
 
-  r        <- x$rows
-  measure  <- x$measure
-  n_blocks <- length(unique(r$block))
+  r         <- x$rows
+  measure   <- x$measure
   show_pval <- !is_single_arm(measure)
+  two_arm   <- !is_single_arm(measure)
+
+  # Patient columns are only drawn when the counts actually exist
+  has_pat_e <- showpatients && any(!is.na(r$n_e))
+  has_pat_c <- showpatients && two_arm && any(!is.na(r$n_c))
+  showpat   <- has_pat_e || has_pat_c
 
   # -------------------------------------------------------------------
-  # 1. Row plan: one printed line per row of `rows`, plus separators
+  # 1. Footnote text
   # -------------------------------------------------------------------
-  # Block header rows are dropped when there is a single unlabelled block
-  # with no subgroups (nothing to group).
+  foot <- character(0)
+  if (isTRUE(add.text)) {
+    rho_txt <- if (length(unique(x$rho)) == 1L) {
+      sprintf("%.1f", x$rho[[1L]])
+    } else {
+      paste(sprintf("%.1f", range(x$rho)), collapse = " to ")
+    }
+    foot <- sprintf(paste0("Three-level meta-analysis using robust variance ",
+                           "estimation (CR2), with studies considered as ",
+                           "clusters; within-cluster correlation \u03c1 = %s."),
+                    rho_txt)
+  } else if (is.character(add.text)) {
+    foot <- add.text
+  }
+
+  # -------------------------------------------------------------------
+  # 2. Row plan: one printed line per row of `rows`, plus separators
+  # -------------------------------------------------------------------
+  # Block headers are dropped when no subgroup rows exist: with a single
+  # estimate per analysis there is nothing to group.
   drop_block_hdr <- !any(r$type == "sub")
 
   plan <- list()   # each element: list(kind, i) where i indexes r
@@ -446,19 +584,23 @@ forest.meta3l_bind <- function(x,
     plan[[length(plan) + 1L]] <- list(kind = r$type[i], i = i)
   }
 
-  n_head_rows <- 1L                       # column header
-  n_body_rows <- length(plan)
-  n_total_rows <- n_head_rows + n_body_rows + 1L   # + axis row
+  n_head_rows  <- if (showpat && has_pat_c) 2L else 1L   # group header + header
+  n_body_rows  <- length(plan)
+  n_total_rows <- n_head_rows + n_body_rows + 1L         # + axis row
   if (measure %in% c("SMD", "MD", "RR", "OR")) n_total_rows <- n_total_rows + 1L
-  if (!is.null(title) && nzchar(title))    n_total_rows <- n_total_rows + 1L
-  if (!is.null(xlab))                      n_total_rows <- n_total_rows + 1L
+  if (!is.null(title) && nzchar(title)) n_total_rows <- n_total_rows + 1L
+  if (!is.null(xlab))                   n_total_rows <- n_total_rows + 1L
+  n_total_rows <- n_total_rows + length(foot)
 
   # -------------------------------------------------------------------
-  # 2. Column layout
+  # 3. Column layout
   # -------------------------------------------------------------------
   col_names <- c("label",
+                 if (has_pat_e) "pat_e",
+                 if (has_pat_c) "pat_c",
                  if (showk) c("studies", "effects"),
                  if (showi2) "i2",
+                 if (showi2 && showi2.parts) c("i2b", "i2w"),
                  "gap1", "ci", "gap2", "results",
                  if (show_pval) "pval")
   col_of <- function(nm) {
@@ -467,9 +609,13 @@ forest.meta3l_bind <- function(x,
   }
 
   label_col   <- col_of("label")
+  pat_e_col   <- col_of("pat_e")
+  pat_c_col   <- col_of("pat_c")
   studies_col <- col_of("studies")
   effects_col <- col_of("effects")
   i2_col      <- col_of("i2")
+  i2b_col     <- col_of("i2b")
+  i2w_col     <- col_of("i2w")
   gap1_col    <- col_of("gap1")
   ci_col      <- col_of("ci")
   gap2_col    <- col_of("gap2")
@@ -483,21 +629,23 @@ forest.meta3l_bind <- function(x,
   lb_all  <- r$lb[is_row]
   ub_all  <- r$ub[is_row]
 
-  # Row labels are indented one level under their block header
-  # Without subgroup rows there is nothing to group, so the block header is
-  # dropped and its single estimate row carries the block name.
+  # Rows are indented by their level in the outcome / category / level tree
   disp_label <- function(i) {
     if (r$type[i] == "block") return(r$label[i])
-    if (r$type[i] == "sub")   return(paste0("  by ", r$label[i]))
+    if (r$type[i] == "sub")   return(paste0("   Subgroup: ", r$label[i]))
     if (drop_block_hdr)       return(r$block[i])
+    if (identical(r$kind[i], "level")) return(paste0("      ", r$label[i]))
     paste0("   ", r$label[i])
   }
   all_labels <- vapply(seq_len(nrow(r)), disp_label, character(1L))
+  note_chars <- max(c(0L, nchar(r$note[r$type == "sub"])), na.rm = TRUE)
 
-  label_chars <- max(nchar(all_labels), nchar("Analysis"), na.rm = TRUE)
-  label_w     <- max(3.5, ilab_col_cm(label_chars))
+  label_chars <- max(nchar(all_labels), nchar(analysis.lab),
+                     note_chars * 0.85, na.rm = TRUE)
+  label_w     <- max(4.5, ilab_col_cm(label_chars))
+  pat_w       <- 1.8
   k_w         <- 1.5
-  i2_w        <- 1.5
+  i2_w        <- 1.6
   gap_w       <- 0.5
   pval_w      <- if (show_pval) 1.8 else 0
   results_chars <- max(
@@ -509,11 +657,17 @@ forest.meta3l_bind <- function(x,
 
   col_widths_cm <- numeric(n_cols)
   col_widths_cm[label_col] <- label_w
+  if (has_pat_e) col_widths_cm[pat_e_col] <- pat_w
+  if (has_pat_c) col_widths_cm[pat_c_col] <- pat_w
   if (showk) {
     col_widths_cm[studies_col] <- k_w
     col_widths_cm[effects_col] <- k_w
   }
   if (showi2) col_widths_cm[i2_col] <- i2_w
+  if (showi2 && showi2.parts) {
+    col_widths_cm[i2b_col] <- i2_w
+    col_widths_cm[i2w_col] <- i2_w
+  }
   col_widths_cm[gap1_col]    <- gap_w
   col_widths_cm[gap2_col]    <- gap_w
   col_widths_cm[results_col] <- results_w
@@ -530,26 +684,41 @@ forest.meta3l_bind <- function(x,
   col_widths_units <- do.call(grid::unit.c, col_units_list)
 
   # -------------------------------------------------------------------
-  # 3. xlim, refline
+  # 4. xlim, refline
   # -------------------------------------------------------------------
-  xlim_final <- if (!is.null(xlim)) xlim else
+  # A single very imprecise subgroup would otherwise stretch the axis until
+  # every other interval collapses onto the reference line, so by default the
+  # limits ignore the most extreme confidence bounds; every estimate still fits
+  # and truncated intervals are drawn with arrows.
+  xlim_final <- if (!is.null(xlim)) {
+    xlim
+  } else if (xlim.trim < 1) {
+    q_lo <- stats::quantile(lb_all, 1 - xlim.trim, na.rm = TRUE, names = FALSE)
+    q_hi <- stats::quantile(ub_all, xlim.trim,     na.rm = TRUE, names = FALSE)
+    auto_xlim(measure, est_all,
+              pmax(lb_all, q_lo), pmin(ub_all, q_hi))
+  } else {
     auto_xlim(measure, est_all, lb_all, ub_all)
+  }
   refline_final <- if (!is.null(refline)) refline else auto_refline(measure)
   .show_refline <- !is.null(refline_final) && !is.na(refline_final) &&
     refline_final >= xlim_final[1] && refline_final <= xlim_final[2]
 
   # -------------------------------------------------------------------
-  # 4. Row heights and device
+  # 5. Row heights and device
   # -------------------------------------------------------------------
   # Heights are fixed ("lines"), so the device must be tall enough to hold
   # them; otherwise grid centres the layout and the outer rows fall off the
   # canvas.
   rh <- rep(1.2, n_total_rows)
-  rh[1L] <- 1.5                                   # column header row
+  if (n_head_rows == 2L) rh[1L] <- 1.4                # "Patients" group header
+  rh[n_head_rows] <- 1.8                              # column header row
   for (p in seq_along(plan)) {
-    if (identical(plan[[p]]$kind, "row")) rh[n_head_rows + p] <- 1.8
-    if (identical(plan[[p]]$kind, "sub")) rh[n_head_rows + p] <- 1.8
-    if (identical(plan[[p]]$kind, "gap")) rh[n_head_rows + p] <- 0.6
+    kind <- plan[[p]]$kind
+    if (identical(kind, "row"))   rh[n_head_rows + p] <- 1.8
+    if (identical(kind, "sub"))   rh[n_head_rows + p] <- 1.9
+    if (identical(kind, "block")) rh[n_head_rows + p] <- 1.6
+    if (identical(kind, "gap"))   rh[n_head_rows + p] <- 0.6
   }
 
   out_file <- resolve_file(x, file, format)
@@ -558,10 +727,8 @@ forest.meta3l_bind <- function(x,
   auto_w   <- as.integer(total_cm * 300 / 2.54) + 300L
   if (is.null(width)) dims$width <- max(dims$width, auto_w)
   if (is.null(height)) {
-    # 1 line = 14.4 pt = 0.2 in at the default 12 pt fontsize; 0.6 in padding.
-    # Set (not floor) the height: the layout rows are fixed-size, so a taller
-    # canvas only adds empty margins.
-    dims$height <- as.integer((sum(rh) * 0.2 + 0.6) * 300)
+    # 1 line = 14.4 pt = 0.2 in at the default 12 pt fontsize; 0.7 in padding
+    dims$height <- as.integer((sum(rh) * 0.2 + 0.7) * 300)
   }
 
   if (!is.null(out_file)) {
@@ -579,19 +746,20 @@ forest.meta3l_bind <- function(x,
   on.exit(grDevices::dev.off(), add = TRUE)
 
   # -------------------------------------------------------------------
-  # 5. Grid layout
+  # 6. Grid layout
   # -------------------------------------------------------------------
   grid::grid.newpage()
 
   row_heights <- grid::unit(rh, "lines")
+  left_inset  <- grid::unit(0.9, "cm")
 
   grid::pushViewport(grid::viewport(
     layout = grid::grid.layout(nrow = n_total_rows, ncol = n_cols,
                                widths = col_widths_units,
                                heights = row_heights),
-    x      = grid::unit(0.4, "cm"),
+    x      = left_inset,
     y      = grid::unit(0, "npc"),
-    width  = grid::unit(1, "npc") - grid::unit(0.4, "cm"),
+    width  = grid::unit(1, "npc") - left_inset,
     height = grid::unit(1, "npc") - grid::unit(0.4, "cm"),
     just   = c("left", "bottom")
   ))
@@ -624,58 +792,96 @@ forest.meta3l_bind <- function(x,
   }
 
   # -------------------------------------------------------------------
-  # 6. Header row
+  # 7. Header rows
   # -------------------------------------------------------------------
-  push_cell(1L, label_col)
-  grid::grid.text("Analysis", x = grid::unit(0, "npc"), just = "left",
+  if (n_head_rows == 2L) {
+    push_span(1L, pat_e_col, pat_c_col)
+    grid::grid.text("Patients", x = grid::unit(0.5, "npc"), just = "centre",
+                    gp = bold_gp)
+    grid::popViewport()
+  }
+
+  hdr_row <- n_head_rows
+
+  push_cell(hdr_row, label_col)
+  grid::grid.text(analysis.lab, x = grid::unit(0, "npc"), just = "left",
                   gp = bold_gp)
   grid::popViewport()
 
+  if (has_pat_e) {
+    lab_e <- if (has_pat_c) {
+      if (!is.null(x$group.e)) x$group.e else "Treatment"
+    } else {
+      "Patients"
+    }
+    push_cell(hdr_row, pat_e_col)
+    grid::grid.text(lab_e, x = grid::unit(0.5, "npc"), just = "centre",
+                    gp = bold_gp)
+    grid::popViewport()
+  }
+  if (has_pat_c) {
+    push_cell(hdr_row, pat_c_col)
+    grid::grid.text(if (!is.null(x$group.c)) x$group.c else "Control",
+                    x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+    grid::popViewport()
+  }
+
   if (showk) {
-    push_cell(1L, studies_col)
+    push_cell(hdr_row, studies_col)
     grid::grid.text("Studies", x = grid::unit(0.5, "npc"), just = "centre",
                     gp = bold_gp)
     grid::popViewport()
-    push_cell(1L, effects_col)
+    push_cell(hdr_row, effects_col)
     grid::grid.text("Effects", x = grid::unit(0.5, "npc"), just = "centre",
                     gp = bold_gp)
     grid::popViewport()
   }
   if (showi2) {
-    push_cell(1L, i2_col)
-    grid::grid.text("I²", x = grid::unit(0.5, "npc"), just = "centre",
+    push_cell(hdr_row, i2_col)
+    grid::grid.text("I\u00b2", x = grid::unit(0.5, "npc"), just = "centre",
                     gp = bold_gp)
     grid::popViewport()
+    if (showi2.parts) {
+      push_cell(hdr_row, i2b_col)
+      grid::grid.text("I\u00b2 btw", x = grid::unit(0.5, "npc"),
+                      just = "centre", gp = bold_gp)
+      grid::popViewport()
+      push_cell(hdr_row, i2w_col)
+      grid::grid.text("I\u00b2 wth", x = grid::unit(0.5, "npc"),
+                      just = "centre", gp = bold_gp)
+      grid::popViewport()
+    }
   }
 
-  push_cell(1L, results_col)
+  push_cell(hdr_row, results_col)
   grid::grid.text("Estimate [95% CI]", x = grid::unit(0.5, "npc"),
                   just = "centre", gp = bold_gp)
   grid::popViewport()
 
   if (show_pval) {
-    push_cell(1L, pval_col)
+    push_cell(hdr_row, pval_col)
     grid::grid.text("p-value", x = grid::unit(0.5, "npc"), just = "centre",
                     gp = bold_gp)
     grid::popViewport()
   }
 
   method_gp <- grid::gpar(fontface = "bold", cex = 0.65)
-  push_cell(1L, ci_col)
+  push_cell(hdr_row, ci_col)
   grid::grid.text(sprintf("Inverse Variance, %s", measure),
                   x = grid::unit(0.5, "npc"), y = grid::unit(0.65, "npc"),
                   just = "centre", gp = method_gp)
-  grid::grid.text(sprintf("Three-Level, ρ = %.1f", x$rho[[1L]]),
+  grid::grid.text(sprintf("Three-Level, \u03c1 = %.1f", x$rho[[1L]]),
                   x = grid::unit(0.5, "npc"), y = grid::unit(0.3, "npc"),
                   just = "centre", gp = method_gp)
   grid::popViewport()
 
   # -------------------------------------------------------------------
-  # 7. Body rows
+  # 8. Body rows
   # -------------------------------------------------------------------
   block_ids <- as.integer(factor(r$block, levels = unique(r$block)))
   row_seq   <- 0L
   fmt_est   <- paste0("%.", digits, "f [%.", digits, "f; %.", digits, "f]")
+  fmt_count <- function(v) if (is.na(v)) "" else format(round(v))
 
   for (p in seq_along(plan)) {
     row_i <- n_head_rows + p
@@ -705,7 +911,7 @@ forest.meta3l_bind <- function(x,
     if (identical(kind, "block")) {
       push_span(row_i, label_col, last_col)
       grid::grid.text(all_labels[i], x = grid::unit(0, "npc"), just = "left",
-                      gp = bold_gp)
+                      gp = grid::gpar(fontface = "bold", cex = 0.85))
       grid::popViewport()
       draw_refline(row_i)
       next
@@ -717,7 +923,7 @@ forest.meta3l_bind <- function(x,
                       y = grid::unit(0.62, "npc"), just = "left",
                       gp = grid::gpar(cex = 0.72, fontface = "bold"))
       if (nzchar(r$note[i])) {
-        grid::grid.text(r$note[i], x = grid::unit(0, "npc"),
+        grid::grid.text(paste0("      ", r$note[i]), x = grid::unit(0, "npc"),
                         y = grid::unit(0.22, "npc"), just = "left",
                         gp = small_gp)
       }
@@ -728,63 +934,115 @@ forest.meta3l_bind <- function(x,
 
     # --- Estimate row -------------------------------------------------
     row_seq <- row_seq + 1L
-    is_overall <- identical(r$label[i], "Overall")
-    lbl_gp <- if (is_overall) grid::gpar(cex = 0.75, fontface = "bold") else
-      norm_gp
+    is_overall <- identical(r$kind[i], "overall")
+    txt_gp <- if (is_overall) bold_gp else norm_gp
 
     push_cell(row_i, label_col)
     grid::grid.text(all_labels[i], x = grid::unit(0, "npc"),
-                    y = grid::unit(0.6, "npc"), just = "left", gp = lbl_gp)
+                    y = grid::unit(0.6, "npc"), just = "left", gp = txt_gp)
     grid::popViewport()
 
-    if (showk) {
-      push_cell(row_i, studies_col)
-      grid::grid.text(ifelse(is.na(r$k_clust[i]), "", as.character(r$k_clust[i])),
-                      x = grid::unit(0.5, "npc"), y = grid::unit(0.6, "npc"),
-                      just = "centre", gp = norm_gp)
-      grid::popViewport()
-      push_cell(row_i, effects_col)
-      grid::grid.text(ifelse(is.na(r$k_eff[i]), "", as.character(r$k_eff[i])),
-                      x = grid::unit(0.5, "npc"), y = grid::unit(0.6, "npc"),
-                      just = "centre", gp = norm_gp)
+    cell_text <- function(col, txt) {
+      if (is.na(col) || !nzchar(txt)) return(invisible(NULL))
+      push_cell(row_i, col)
+      grid::grid.text(txt, x = grid::unit(0.5, "npc"),
+                      y = grid::unit(0.6, "npc"), just = "centre", gp = txt_gp)
       grid::popViewport()
     }
 
+    if (has_pat_e) cell_text(pat_e_col, fmt_count(r$n_e[i]))
+    if (has_pat_c) cell_text(pat_c_col, fmt_count(r$n_c[i]))
+    if (showk) {
+      cell_text(studies_col, fmt_count(r$k_clust[i]))
+      cell_text(effects_col, fmt_count(r$k_eff[i]))
+    }
     if (showi2) {
-      push_cell(row_i, i2_col)
-      grid::grid.text(ifelse(is.na(r$i2[i]), "",
-                             sprintf("%.0f%%", r$i2[i])),
-                      x = grid::unit(0.5, "npc"), y = grid::unit(0.6, "npc"),
-                      just = "centre", gp = norm_gp)
-      grid::popViewport()
+      cell_text(i2_col, if (is.na(r$i2[i])) "" else sprintf("%.0f%%", r$i2[i]))
+      if (showi2.parts) {
+        cell_text(i2b_col,
+                  if (is.na(r$i2b[i])) "" else sprintf("%.0f%%", r$i2b[i]))
+        cell_text(i2w_col,
+                  if (is.na(r$i2w[i])) "" else sprintf("%.0f%%", r$i2w[i]))
+      }
     }
 
     draw_refline(row_i)
 
     if (!is.na(r$est[i]) && !is.na(r$lb[i]) && !is.na(r$ub[i])) {
       push_cell(row_i, ci_col, xscale = xlim_final, clip = "on")
-      draw_diamond(
-        max(r$lb[i], xlim_final[1]),
-        min(max(r$est[i], xlim_final[1]), xlim_final[2]),
-        min(r$ub[i], xlim_final[2]),
-        y_center = 0.6
-      )
+      if (is_overall) {
+        draw_diamond(
+          max(r$lb[i], xlim_final[1]),
+          min(max(r$est[i], xlim_final[1]), xlim_final[2]),
+          min(r$ub[i], xlim_final[2]),
+          y_center = 0.6
+        )
+        # Flag a diamond whose interval runs past the panel, otherwise the
+        # clipped tip reads as a genuine end point
+        for (side in c(1L, 2L)) {
+          runs_off <- if (side == 1L) r$lb[i] < xlim_final[1] else
+            r$ub[i] > xlim_final[2]
+          if (!runs_off) next
+          edge <- xlim_final[side]
+          inner <- edge + (if (side == 1L) 1 else -1) * diff(xlim_final) * 0.03
+          grid::grid.segments(
+            x0    = grid::unit(inner, "native"),
+            x1    = grid::unit(edge, "native"),
+            y0    = grid::unit(0.6, "npc"),
+            y1    = grid::unit(0.6, "npc"),
+            arrow = grid::arrow(ends = "last",
+                                length = grid::unit(0.05, "inches")),
+            gp    = grid::gpar(lwd = 1)
+          )
+        }
+      } else {
+        lb_draw <- max(r$lb[i], xlim_final[1])
+        ub_draw <- min(r$ub[i], xlim_final[2])
+        trunc_left  <- r$lb[i] < xlim_final[1]
+        trunc_right <- r$ub[i] > xlim_final[2]
+        if (trunc_left || trunc_right) {
+          arrow_ends <- if (trunc_left && trunc_right) "both" else
+            if (trunc_left) "first" else "last"
+          grid::grid.segments(
+            x0    = grid::unit(lb_draw, "native"),
+            x1    = grid::unit(ub_draw, "native"),
+            y0    = grid::unit(0.6, "npc"),
+            y1    = grid::unit(0.6, "npc"),
+            arrow = grid::arrow(ends = arrow_ends,
+                                length = grid::unit(0.05, "inches")),
+            gp    = grid::gpar(lwd = 1)
+          )
+        } else {
+          grid::grid.segments(
+            x0 = grid::unit(lb_draw, "native"),
+            x1 = grid::unit(ub_draw, "native"),
+            y0 = grid::unit(0.6, "npc"),
+            y1 = grid::unit(0.6, "npc"),
+            gp = grid::gpar(lwd = 1)
+          )
+        }
+        if (r$est[i] >= xlim_final[1] && r$est[i] <= xlim_final[2]) {
+          grid::grid.rect(
+            x      = grid::unit(r$est[i], "native"),
+            y      = grid::unit(0.6, "npc"),
+            width  = grid::unit(0.55 * squaresize, "lines"),
+            height = grid::unit(0.55 * squaresize, "lines"),
+            just   = "centre",
+            gp     = grid::gpar(fill = "black", col = "black")
+          )
+        }
+      }
       grid::popViewport()
 
       push_cell(row_i, results_col)
       grid::grid.text(sprintf(fmt_est, r$est[i], r$lb[i], r$ub[i]),
                       x = grid::unit(0.5, "npc"), y = grid::unit(0.6, "npc"),
-                      just = "centre",
-                      gp = if (is_overall) bold_gp else norm_gp)
+                      just = "centre", gp = txt_gp)
       grid::popViewport()
 
       if (show_pval && !is.na(r$pval[i])) {
         pv <- if (r$pval[i] < 0.001) "<0.001" else sprintf("%.4f", r$pval[i])
-        push_cell(row_i, pval_col)
-        grid::grid.text(pv, x = grid::unit(0.5, "npc"),
-                        y = grid::unit(0.6, "npc"), just = "centre",
-                        gp = if (is_overall) bold_gp else norm_gp)
-        grid::popViewport()
+        cell_text(pval_col, pv)
       }
     } else {
       push_cell(row_i, results_col)
@@ -796,7 +1054,7 @@ forest.meta3l_bind <- function(x,
   }
 
   # -------------------------------------------------------------------
-  # 8. Axis row
+  # 9. Axis row
   # -------------------------------------------------------------------
   current_row <- n_head_rows + n_body_rows + 1L
   at_final <- if (!is.null(at)) at else pretty(xlim_final, n = 5L)
@@ -825,7 +1083,7 @@ forest.meta3l_bind <- function(x,
   current_row <- current_row + 1L
 
   # -------------------------------------------------------------------
-  # 9. Favours labels, title, xlab
+  # 10. Favours labels, title, xlab, footnote
   # -------------------------------------------------------------------
   if (measure %in% c("SMD", "MD", "RR", "OR")) {
     fav_left  <- paste0("Favours ",
@@ -853,6 +1111,14 @@ forest.meta3l_bind <- function(x,
     push_cell(current_row, ci_col)
     grid::grid.text(xlab, x = grid::unit(0.5, "npc"), just = "centre",
                     gp = grid::gpar(cex = 0.7))
+    grid::popViewport()
+    current_row <- current_row + 1L
+  }
+
+  for (line in foot) {
+    push_span(current_row, label_col, last_col)
+    grid::grid.text(line, x = grid::unit(0, "npc"), just = "left",
+                    gp = small_gp)
     grid::popViewport()
     current_row <- current_row + 1L
   }

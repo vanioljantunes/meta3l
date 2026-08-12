@@ -9,7 +9,9 @@ metabind(
   subgroup = NULL,
   labels = NULL,
   overall = TRUE,
+  overall.first = FALSE,
   qtest = TRUE,
+  patients.method = c("max", "sum"),
   name = "metabind"
 )
 }
@@ -19,9 +21,10 @@ named) list of them.  Names, when present, become the block labels;
 otherwise the \code{name} field of each result is used.}
 
 \item{subgroup}{Character vector of column names to break each analysis down
-by (e.g. \code{c("side", "intervention")}).  A column absent from a given
-analysis is skipped with a warning.  \code{NULL} (default) produces one row
-per analysis.}
+by (e.g. \code{c("side", "intervention")}).  Several categories per
+analysis are allowed and each gets its own sub-heading.  A column absent
+from a given analysis is skipped with a warning.  \code{NULL} (default)
+produces one row per analysis.}
 
 \item{labels}{Character vector of block labels, one per analysis.  Overrides
 list names and \code{name} fields.}
@@ -30,9 +33,17 @@ list names and \code{name} fields.}
 (default \code{TRUE}).  When \code{subgroup} is \code{NULL} this is the only
 row a block has and the argument is ignored.}
 
+\item{overall.first}{Logical; draw the pooled row before its subgroup
+categories instead of after them (default \code{FALSE}).}
+
 \item{qtest}{Logical; compute the omnibus test for subgroup differences for
 each subgroup column (default \code{TRUE}).  Ignored when \code{subgroup}
 is \code{NULL}.}
+
+\item{patients.method}{How to count patients without double counting those
+who contribute several effect sizes: \code{"max"} (default) takes the
+largest sample size per cluster, \code{"sum"} adds the rows up.  See
+\code{bind_patients}.}
 
 \item{name}{Character string; base name used for auto-generated plot file
 names.  Defaults to \code{"metabind"}.}
@@ -42,8 +53,10 @@ An object of class \code{"meta3l_bind"}, a named list with:
   \describe{
     \item{rows}{Data frame with one row per printed line: \code{block},
       \code{type} (\code{"block"}, \code{"sub"} or \code{"row"}),
+      \code{kind} (\code{"overall"} or \code{"level"} for estimate rows),
       \code{label}, \code{est}, \code{lb}, \code{ub}, \code{pval},
-      \code{k_eff}, \code{k_clust}, \code{i2}, \code{note}.}
+      \code{k_eff}, \code{k_clust}, \code{i2}, \code{i2b}, \code{i2w},
+      \code{n_e}, \code{n_c}, \code{note}.}
     \item{measure}{The shared effect size measure.}
     \item{rho}{Vector of \code{rho} values, one per analysis.}
     \item{group.e, group.c}{Group labels taken from the first analysis.}
@@ -62,6 +75,11 @@ performed across analyses, the rows are simply stacked for comparison.
 \details{
 Every analysis must share the same \code{measure}; mixing measures on one
 axis is refused.
+
+Within an analysis the subgroup categories are listed first, each as its own
+sub-heading with the omnibus test for subgroup differences, and the pooled
+estimate of the whole analysis closes the block.  Set
+\code{overall.first = TRUE} to put the pooled estimate on top instead.
 }
 \examples{
 \dontrun{
@@ -69,10 +87,10 @@ mb <- metabind(
   Putamen  = r_putamen,
   Caudate  = r_caudate,
   Thalamus = r_thalamus,
-  subgroup = "side"
+  subgroup = c("side", "intervention")
 )
 print(mb)
-forest(mb, title = "Brain copper by region", file = character(0))
+forest(mb, analysis.lab = "Region", title = "QSM", file = character(0))
 }
 }
 \seealso{
