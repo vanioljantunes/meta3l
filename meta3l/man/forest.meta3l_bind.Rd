@@ -18,7 +18,7 @@
   showk = TRUE,
   showi2 = TRUE,
   showi2.parts = TRUE,
-  shade = "block",
+  shade = "zebra",
   colshade = rgb(0.92, 0.92, 0.92),
   squaresize = 1,
   digits = 2L,
@@ -70,8 +70,8 @@ group names and grouped under a \code{Patients} header.}
 \item{showi2.parts}{Logical; also show the between- and within-cluster
 I-squared columns (default \code{TRUE}).}
 
-\item{shade}{One of \code{"block"} (default, alternate blocks shaded),
-\code{"zebra"} (alternate rows) or \code{"none"}.}
+\item{shade}{One of \code{"zebra"} (default, alternate estimate rows shaded),
+\code{"block"} (alternate analyses shaded) or \code{"none"}.}
 
 \item{colshade}{Colour used for shading.}
 
