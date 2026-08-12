@@ -18,6 +18,10 @@ Imports:
     rstudioapi (>= 0.13),
     clubSandwich (>= 0.5.0)
 Suggests:
+    ggseg,
+    ggplot2,
+    sf,
+    MetBrewer,
     testthat (>= 3.0.0),
     writexl,
     mockery,
