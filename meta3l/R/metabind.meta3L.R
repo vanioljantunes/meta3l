@@ -367,11 +367,9 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
         if (isTRUE(qtest) && length(lv) > 1L) {
           qp <- bind_qtest(x, sg_col)
           if (!is.na(qp)) {
-            q_note <- if (qp < 0.001) {
-              "Test for subgroup differences: p < 0.001"
-            } else {
-              sprintf("Test for subgroup differences: p = %.3f", qp)
-            }
+            # Just the p-value: the "p (diff)" column header carries the
+            # meaning and the value is centred over the category's band
+            q_note <- if (qp < 0.001) "<0.001" else sprintf("%.3f", qp)
           }
         }
         rows[[length(rows) + 1L]] <- make_row(bl, "sub", as.character(sg_col),
@@ -436,7 +434,7 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
       cat(r$label[i], "\n", sep = "")
     } else if (r$type[i] == "sub") {
       cat("  Subgroup: ", r$label[i],
-          if (nzchar(r$note[i])) paste0("   (", r$note[i], ")") else "",
+          if (nzchar(r$note[i])) paste0("   (p diff = ", r$note[i], ")") else "",
           "\n", sep = "")
     } else {
       est_txt <- if (is.na(r$est[i])) {
@@ -497,8 +495,9 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #' @param showi2 Logical; show the I-squared column (default \code{TRUE}).
 #' @param showi2.parts Logical; also show the between- and within-cluster
 #'   I-squared columns (default \code{TRUE}).
-#' @param shade One of \code{"zebra"} (default, alternate estimate rows shaded),
-#'   \code{"block"} (alternate analyses shaded) or \code{"none"}.
+#' @param shade One of \code{"category"} (default, one shading band per
+#'   subgroup category), \code{"zebra"} (alternate estimate rows),
+#'   \code{"block"} (alternate analyses) or \code{"none"}.
 #' @param colshade Colour used for shading.
 #' @param squaresize Numeric scaling factor for the subgroup-level squares.
 #' @param digits Integer; digits for estimates and confidence limits.
@@ -528,7 +527,7 @@ forest.meta3l_bind <- function(x,
                                showk        = TRUE,
                                showi2       = TRUE,
                                showi2.parts = TRUE,
-                               shade        = "zebra",
+                               shade        = "category",
                                colshade     = rgb(0.92, 0.92, 0.92),
                                squaresize   = 1,
                                digits       = 2L,
@@ -575,18 +574,44 @@ forest.meta3l_bind <- function(x,
   # estimate per analysis there is nothing to group.
   drop_block_hdr <- !any(r$type == "sub")
 
-  plan <- list()   # each element: list(kind, i) where i indexes r
+  # The subgroup category no longer gets a row of its own: its levels are held
+  # together by a shading band, and the category name and its omnibus test are
+  # drawn once, vertically centred over that band.
+  plan     <- list()   # each element: list(kind, i, band)
+  bands    <- list()   # each element: list(label, note, plan_from, plan_to)
+  cur_band <- NA_integer_
   prev_block <- NULL
   for (i in seq_len(nrow(r))) {
     if (r$type[i] == "block") {
       if (!is.null(prev_block) && !drop_block_hdr) {
-        plan[[length(plan) + 1L]] <- list(kind = "gap")
+        plan[[length(plan) + 1L]] <- list(kind = "gap", band = NA_integer_)
       }
       prev_block <- r$block[i]
+      cur_band <- NA_integer_
       if (drop_block_hdr) next
+      plan[[length(plan) + 1L]] <- list(kind = "block", i = i,
+                                        band = NA_integer_)
+      next
     }
-    plan[[length(plan) + 1L]] <- list(kind = r$type[i], i = i)
+    if (r$type[i] == "sub") {
+      bands[[length(bands) + 1L]] <- list(label = r$label[i], note = r$note[i],
+                                          plan_from = NA_integer_,
+                                          plan_to = NA_integer_)
+      cur_band <- length(bands)
+      next
+    }
+    is_level <- identical(r$kind[i], "level")
+    band_i   <- if (is_level) cur_band else NA_integer_
+    plan[[length(plan) + 1L]] <- list(kind = "row", i = i, band = band_i)
+    if (is_level && !is.na(band_i)) {
+      pos <- length(plan)
+      if (is.na(bands[[band_i]]$plan_from)) bands[[band_i]]$plan_from <- pos
+      bands[[band_i]]$plan_to <- pos
+    }
+    if (!is_level) cur_band <- NA_integer_
   }
+  bands <- Filter(function(b) !is.na(b$plan_from), bands)
+  has_pdiff <- any(vapply(bands, function(b) nzchar(b$note), logical(1L)))
 
   n_head_rows  <- if (showpat && has_pat_c) 2L else 1L   # group header + header
   n_body_rows  <- length(plan)
@@ -603,20 +628,23 @@ forest.meta3l_bind <- function(x,
   # -------------------------------------------------------------------
   # 3. Column layout
   # -------------------------------------------------------------------
-  col_names <- c("label",
+  col_names <- c(if (length(bands) > 0L) "cat", "label",
                  if (has_pat_e) "pat_e",
                  if (has_pat_c) "pat_c",
                  if (showk) c("studies", "effects"),
                  if (showi2) "i2",
                  if (showi2 && showi2.parts) c("i2b", "i2w"),
                  "gap1", "ci", "gap2", "results",
-                 if (show_pval) "pval")
+                 if (show_pval) "pval",
+                 if (has_pdiff) "pdiff")
   col_of <- function(nm) {
     j <- match(nm, col_names)
     if (is.na(j)) NA_integer_ else as.integer(j)
   }
 
+  cat_col     <- col_of("cat")
   label_col   <- col_of("label")
+  first_col   <- if (is.na(cat_col)) col_of("label") else cat_col
   pat_e_col   <- col_of("pat_e")
   pat_c_col   <- col_of("pat_c")
   studies_col <- col_of("studies")
@@ -629,6 +657,7 @@ forest.meta3l_bind <- function(x,
   gap2_col    <- col_of("gap2")
   results_col <- col_of("results")
   pval_col    <- col_of("pval")
+  pdiff_col   <- col_of("pdiff")
   last_col    <- length(col_names)
   n_cols      <- last_col
 
@@ -637,20 +666,21 @@ forest.meta3l_bind <- function(x,
   lb_all  <- r$lb[is_row]
   ub_all  <- r$ub[is_row]
 
-  # Rows are indented by their level in the outcome / category / level tree
   disp_label <- function(i) {
     if (r$type[i] == "block") return(r$label[i])
-    if (r$type[i] == "sub")   return(paste0("   Subgroup: ", r$label[i]))
+    if (r$type[i] == "sub")   return(r$label[i])
     if (drop_block_hdr)       return(r$block[i])
-    if (identical(r$kind[i], "level")) return(paste0("      ", r$label[i]))
-    paste0("   ", r$label[i])
+    paste0("  ", r$label[i])
   }
   all_labels <- vapply(seq_len(nrow(r)), disp_label, character(1L))
-  note_chars <- max(c(0L, nchar(r$note[r$type == "sub"])), na.rm = TRUE)
 
-  label_chars <- max(nchar(all_labels), nchar(analysis.lab),
-                     note_chars * 0.85, na.rm = TRUE)
-  label_w     <- max(4.5, ilab_col_cm(label_chars))
+  cat_chars <- max(c(nchar("Subgroup"),
+                     vapply(bands, function(b) nchar(b$label), integer(1L))),
+                   na.rm = TRUE)
+  cat_w     <- max(2.6, ilab_col_cm(cat_chars))
+  label_chars <- max(nchar(all_labels), nchar(analysis.lab), na.rm = TRUE)
+  label_w     <- max(4.0, ilab_col_cm(label_chars))
+  pdiff_w     <- 2.0
   pat_w       <- 1.8
   k_w         <- 1.5
   i2_w        <- 1.6
@@ -664,7 +694,9 @@ forest.meta3l_bind <- function(x,
   results_w <- ilab_col_cm(results_chars)
 
   col_widths_cm <- numeric(n_cols)
+  if (!is.na(cat_col)) col_widths_cm[cat_col] <- cat_w
   col_widths_cm[label_col] <- label_w
+  if (has_pdiff) col_widths_cm[pdiff_col] <- pdiff_w
   if (has_pat_e) col_widths_cm[pat_e_col] <- pat_w
   if (has_pat_c) col_widths_cm[pat_c_col] <- pat_w
   if (showk) {
@@ -747,7 +779,6 @@ forest.meta3l_bind <- function(x,
   for (p in seq_along(plan)) {
     kind <- plan[[p]]$kind
     if (identical(kind, "row"))   rh[n_head_rows + p] <- 1.15
-    if (identical(kind, "sub"))   rh[n_head_rows + p] <- 1.25
     if (identical(kind, "block")) rh[n_head_rows + p] <- 1.35
     if (identical(kind, "gap"))   rh[n_head_rows + p] <- 0.35
   }
@@ -825,6 +856,18 @@ forest.meta3l_bind <- function(x,
   # -------------------------------------------------------------------
   # 7. Header rows
   # -------------------------------------------------------------------
+  if (!is.na(cat_col)) {
+    push_cell(n_head_rows, cat_col)
+    grid::grid.text("Subgroup", x = grid::unit(0, "npc"), just = "left",
+                    gp = bold_gp)
+    grid::popViewport()
+  }
+  if (has_pdiff) {
+    push_cell(n_head_rows, pdiff_col)
+    grid::grid.text("p (diff)", x = grid::unit(0.5, "npc"), just = "centre",
+                    gp = bold_gp)
+    grid::popViewport()
+  }
   if (n_head_rows == 2L) {
     push_span(1L, pat_e_col, pat_c_col)
     grid::grid.text("Patients", x = grid::unit(0.5, "npc"), just = "centre",
@@ -925,8 +968,12 @@ forest.meta3l_bind <- function(x,
 
     i <- plan[[p]]$i
 
-    # Shading
-    do_shade <- if (identical(shade, "block")) {
+    # Shading: by default a band per subgroup category, so the levels of one
+    # category read as a group now that the category has no row of its own
+    band_i <- plan[[p]]$band
+    do_shade <- if (identical(shade, "category")) {
+      !is.na(band_i) && band_i %% 2L == 1L
+    } else if (identical(shade, "block")) {
       block_ids[i] %% 2L == 1L
     } else if (identical(shade, "zebra") && identical(kind, "row")) {
       (row_seq + 1L) %% 2L == 0L
@@ -934,36 +981,15 @@ forest.meta3l_bind <- function(x,
       FALSE
     }
     if (do_shade) {
-      push_span(row_i, label_col, last_col)
+      push_span(row_i, first_col, last_col)
       draw_zebra_rect(colshade)
       grid::popViewport()
     }
 
     if (identical(kind, "block")) {
-      push_span(row_i, label_col, last_col)
+      push_span(row_i, first_col, last_col)
       grid::grid.text(all_labels[i], x = grid::unit(0, "npc"), just = "left",
                       gp = grid::gpar(fontface = "bold", cex = 0.85))
-      grid::popViewport()
-      draw_refline(row_i)
-      next
-    }
-
-    if (identical(kind, "sub")) {
-      push_span(row_i, label_col, gap1_col, clip = "on")
-      grid::grid.text(all_labels[i], x = grid::unit(0, "npc"),
-                      y = grid::unit(0.5, "npc"), just = "left",
-                      gp = grid::gpar(cex = 0.72, fontface = "bold"))
-      if (nzchar(r$note[i])) {
-        # Offset by the rendered width of the heading (~0.16 cm per bold
-        # character at cex 0.72) plus a gap
-        grid::grid.text(
-          r$note[i],
-          x    = grid::unit(nchar(all_labels[i]) * 0.16 + 0.5, "cm"),
-          y    = grid::unit(0.5, "npc"),
-          just = "left",
-          gp   = small_gp
-        )
-      }
       grid::popViewport()
       draw_refline(row_i)
       next
@@ -1093,6 +1119,35 @@ forest.meta3l_bind <- function(x,
   }
 
   # -------------------------------------------------------------------
+  # 8b. Category name and omnibus test, centred over each band
+  # -------------------------------------------------------------------
+  # Category names come from column names, so tidy them for display
+  pretty_cat <- function(s) {
+    s <- gsub("[._]+", " ", s)
+    paste0(toupper(substr(s, 1L, 1L)), substr(s, 2L, nchar(s)))
+  }
+  for (b in bands) {
+    rows_b <- (n_head_rows + b$plan_from):(n_head_rows + b$plan_to)
+    if (!is.na(cat_col)) {
+      grid::pushViewport(grid::viewport(layout.pos.row = rows_b,
+                                        layout.pos.col = cat_col, clip = "on"))
+      grid::grid.text(pretty_cat(b$label), x = grid::unit(0, "npc"),
+                      y = grid::unit(0.5, "npc"), just = "left",
+                      gp = grid::gpar(cex = 0.72, fontface = "bold"))
+      grid::popViewport()
+    }
+    if (has_pdiff && nzchar(b$note)) {
+      grid::pushViewport(grid::viewport(layout.pos.row = rows_b,
+                                        layout.pos.col = pdiff_col,
+                                        clip = "on"))
+      grid::grid.text(b$note, x = grid::unit(0.5, "npc"),
+                      y = grid::unit(0.5, "npc"), just = "centre",
+                      gp = small_gp)
+      grid::popViewport()
+    }
+  }
+
+  # -------------------------------------------------------------------
   # 9. Axis row
   # -------------------------------------------------------------------
   current_row <- n_head_rows + n_body_rows + 1L
@@ -1158,7 +1213,7 @@ forest.meta3l_bind <- function(x,
   # under the last information row
   foot_row <- n_head_rows + n_body_rows + 1L
   for (line in foot) {
-    push_span(foot_row, label_col, gap1_col, clip = "on")
+    push_span(foot_row, first_col, gap1_col, clip = "on")
     grid::grid.text(line, x = grid::unit(0, "npc"), y = grid::unit(0.5, "npc"),
                     just = "left", gp = small_gp)
     grid::popViewport()
