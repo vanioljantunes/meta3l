@@ -153,8 +153,12 @@ brainmap <- function(x, ...) UseMethod("brainmap")
 #'   draw as midbrain ellipses, in the order red nucleus, substantia nigra.
 #'   \code{NULL} (default) auto-detects them from the labels.  Use \code{NA} in
 #'   a slot to skip it, or \code{character(0)} to draw none.
-#' @param labels Logical; write the region name on each coloured region
-#'   (default \code{TRUE}).
+#' @param labels One of \code{"number"} (default), \code{"name"} or
+#'   \code{"none"}.  \code{"number"} marks each coloured region with a small
+#'   numbered disc and lists the numbers under the figure, which keeps long
+#'   anatomical names off the slice; \code{"name"} writes the name on the
+#'   region itself.  \code{TRUE} and \code{FALSE} are accepted as synonyms of
+#'   \code{"name"} and \code{"none"}.
 #' @param legend.title Character; legend title.  \code{NULL} derives it from the
 #'   measure.
 #' @param title Character; plot title.
@@ -186,7 +190,7 @@ brainmap.meta3l_bind <- function(x,
                                  limits       = NULL,
                                  region.map   = NULL,
                                  schematic    = NULL,
-                                 labels       = TRUE,
+                                 labels       = c("number", "name", "none"),
                                  legend.title = NULL,
                                  title        = NULL,
                                  caption      = TRUE,
@@ -199,6 +203,9 @@ brainmap.meta3l_bind <- function(x,
   stopifnot(inherits(x, "meta3l_bind"))
   value <- match.arg(value)
   scale <- match.arg(scale)
+  if (isTRUE(labels))  labels <- "name"
+  if (isFALSE(labels)) labels <- "none"
+  labels <- match.arg(labels, c("number", "name", "none"))
 
   need <- c("ggseg", "ggplot2", "sf", "MetBrewer")
   miss <- need[!vapply(need, requireNamespace, logical(1L), quietly = TRUE)]
@@ -269,6 +276,7 @@ brainmap.meta3l_bind <- function(x,
   }
 
   # --- 5. Attach the values to the geometry --------------------------------
+  dat$num <- seq_len(nrow(dat))
   keyed <- dat[!is_schem & !is.na(dat$region), , drop = FALSE]
   slice$eff <- keyed$est[match(bm_key(slice$region), bm_key(keyed$region))]
   slice$lab   <- keyed$label[match(bm_key(slice$region), bm_key(keyed$region))]
@@ -282,6 +290,12 @@ brainmap.meta3l_bind <- function(x,
       schem_sf$lab   <- schem_sf$region
       schem_sf <- schem_sf[!is.na(schem_sf$eff), , drop = FALSE]
     }
+  }
+
+  # --- 5b. Numbering, in the order the analyses were bound -----------------
+  slice$num <- keyed$num[match(bm_key(slice$region), bm_key(keyed$region))]
+  if (!is.null(schem_sf) && nrow(schem_sf) > 0L) {
+    schem_sf$num <- dat$num[match(schem_sf$region, dat$label)]
   }
 
   # --- 6. Colour scale ------------------------------------------------------
@@ -313,6 +327,15 @@ brainmap.meta3l_bind <- function(x,
                            "Effect")
   }
 
+  key_txt <- NULL
+  if (identical(labels, "number")) {
+    shown <- dat[!is.na(dat$region) & !is.na(dat$est), , drop = FALSE]
+    if (nrow(shown) > 0L) {
+      key_txt <- paste(sprintf("%d - %s", shown$num, shown$label),
+                       collapse = "   |   ")
+    }
+  }
+
   cap <- NULL
   if (isTRUE(caption)) {
     if (!is.null(schem_sf) && nrow(schem_sf) > 0L) {
@@ -330,6 +353,13 @@ brainmap.meta3l_bind <- function(x,
   }
   if (!is.null(cap)) cap <- paste(strwrap(cap, width = 95L), collapse = "
 ")
+  if (!is.null(key_txt)) {
+    key_txt <- paste(strwrap(key_txt, width = 95L), collapse = "
+")
+    cap <- if (is.null(cap)) key_txt else paste(key_txt, cap, sep = "
+
+")
+  }
 
   # --- 7. Assemble the plot -------------------------------------------------
   p <- ggplot2::ggplot() +
@@ -355,21 +385,31 @@ brainmap.meta3l_bind <- function(x,
                               linetype = "22")
   }
 
-  if (isTRUE(labels)) {
-    lab_sf <- slice[!is.na(slice$eff), c("lab", "geometry")]
+  if (!identical(labels, "none")) {
+    mark <- slice[!is.na(slice$eff), c("lab", "num", "geometry")]
     if (!is.null(schem_sf) && nrow(schem_sf) > 0L) {
-      lab_sf <- rbind(lab_sf, schem_sf[, c("lab", "geometry")])
+      mark <- rbind(mark, schem_sf[, c("lab", "num", "geometry")])
     }
-    if (nrow(lab_sf) > 0L) {
-      # One label per region - the largest polygon of the pair - so the two
-      # hemispheres do not print the same name twice on top of each other
-      areas  <- as.numeric(sf::st_area(lab_sf))
-      keep   <- vapply(split(seq_along(areas), lab_sf$lab),
-                       function(ix) ix[which.max(areas[ix])], integer(1L))
-      lab_sf <- lab_sf[sort(keep), , drop = FALSE]
-      p <- p + ggplot2::geom_sf_text(data = lab_sf,
-                                     ggplot2::aes(label = .data$lab),
-                                     size = 2.4, colour = "grey15")
+    if (nrow(mark) > 0L) {
+      if (identical(labels, "name")) {
+        # One name per region - the largest polygon of the pair - so the two
+        # hemispheres do not print the same name twice on top of each other
+        areas <- as.numeric(sf::st_area(mark))
+        keep  <- vapply(split(seq_along(areas), mark$lab),
+                        function(ix) ix[which.max(areas[ix])], integer(1L))
+        mark  <- mark[sort(keep), , drop = FALSE]
+        p <- p + ggplot2::geom_sf_text(data = mark,
+                                       ggplot2::aes(label = lab),
+                                       size = 2.4, colour = "grey15")
+      } else {
+        pts <- sf::st_point_on_surface(sf::st_geometry(mark))
+        pts <- sf::st_sf(num = mark$num, geometry = pts)
+        p <- p +
+          ggplot2::geom_sf(data = pts, shape = 21, fill = "white",
+                           colour = "grey15", size = 3.6, stroke = 0.4) +
+          ggplot2::geom_sf_text(data = pts, ggplot2::aes(label = num),
+                                size = 2.1, colour = "grey10")
+      }
     }
   }
 

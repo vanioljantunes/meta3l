@@ -43,7 +43,7 @@ is \code{NULL}.}
 \item{patients.method}{How to count patients without double counting those
 who contribute several effect sizes: \code{"max"} (default) takes the
 largest sample size per cluster, \code{"sum"} adds the rows up.  See
-\code{bind_patients}.}
+\code{bind_arm_summary}.}
 
 \item{name}{Character string; base name used for auto-generated plot file
 names.  Defaults to \code{"metabind"}.}
@@ -56,7 +56,8 @@ An object of class \code{"meta3l_bind"}, a named list with:
       \code{kind} (\code{"overall"} or \code{"level"} for estimate rows),
       \code{label}, \code{est}, \code{lb}, \code{ub}, \code{pval},
       \code{k_eff}, \code{k_clust}, \code{i2}, \code{i2b}, \code{i2w},
-      \code{n_e}, \code{n_c}, \code{note}.}
+      \code{n_e}, \code{mean_e}, \code{sd_e}, \code{n_c},
+      \code{mean_c}, \code{sd_c}, \code{note}.}
     \item{measure}{The shared effect size measure.}
     \item{rho}{Vector of \code{rho} values, one per analysis.}
     \item{group.e, group.c}{Group labels taken from the first analysis.}
