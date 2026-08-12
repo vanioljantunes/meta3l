@@ -6,4 +6,4 @@
 #' @importFrom clubSandwich vcovCR
 "_PACKAGE"
 
-utils::globalVariables(c("yi", "vi", "TE_id"))
+utils::globalVariables(c("yi", "vi", "TE_id", "eff", "lab"))
