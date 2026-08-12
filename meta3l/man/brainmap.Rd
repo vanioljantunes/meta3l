@@ -17,7 +17,7 @@ brainmap(x, ...)
   limits = NULL,
   region.map = NULL,
   schematic = NULL,
-  labels = TRUE,
+  labels = c("number", "name", "none"),
   legend.title = NULL,
   title = NULL,
   caption = TRUE,
@@ -63,8 +63,12 @@ draw as midbrain ellipses, in the order red nucleus, substantia nigra.
 \code{NULL} (default) auto-detects them from the labels.  Use \code{NA} in
 a slot to skip it, or \code{character(0)} to draw none.}
 
-\item{labels}{Logical; write the region name on each coloured region
-(default \code{TRUE}).}
+\item{labels}{One of \code{"number"} (default), \code{"name"} or
+\code{"none"}.  \code{"number"} marks each coloured region with a small
+numbered disc and lists the numbers under the figure, which keeps long
+anatomical names off the slice; \code{"name"} writes the name on the
+region itself.  \code{TRUE} and \code{FALSE} are accepted as synonyms of
+\code{"name"} and \code{"none"}.}
 
 \item{legend.title}{Character; legend title.  \code{NULL} derives it from the
 measure.}

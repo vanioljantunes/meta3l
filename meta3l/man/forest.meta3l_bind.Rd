@@ -14,14 +14,15 @@
   xlab = NULL,
   title = NULL,
   add.text = TRUE,
-  showpatients = TRUE,
+  showdata = TRUE,
   showk = TRUE,
   showi2 = TRUE,
   showi2.parts = TRUE,
-  shade = "category",
+  shade = "zebra",
   colshade = rgb(0.92, 0.92, 0.92),
   squaresize = 1,
   digits = 2L,
+  digits.data = 1L,
   file = character(0),
   format = "png",
   width = NULL,
@@ -58,27 +59,29 @@ unreadable; intervals reaching past the limits get arrow heads.  Set to
 \code{TRUE} (default) composes it from the object, \code{FALSE} omits it,
 and a character vector is printed verbatim, one line per element.}
 
-\item{showpatients}{Logical; show the patient-count columns (default
-\code{TRUE}).  For two-arm measures the two columns are labelled with the
-group names and grouped under a \code{Patients} header.}
+\item{showdata}{Logical; show the per-arm data columns (default
+\code{TRUE}).  For two-arm measures these are mean, SD and total for each
+group, headed by the group names; single-arm measures get one total column.}
 
 \item{showk}{Logical; show the "Studies" and "Effects" columns
 (default \code{TRUE}).}
 
-\item{showi2}{Logical; show the I-squared column (default \code{TRUE}).}
+\item{showi2}{Logical; show the I-squared columns (default \code{TRUE}).}
 
-\item{showi2.parts}{Logical; also show the between- and within-cluster
-I-squared columns (default \code{TRUE}).}
+\item{showi2.parts}{Logical; split I-squared into between- and
+within-cluster columns next to the total (default \code{TRUE}).}
 
-\item{shade}{One of \code{"category"} (default, one shading band per
-subgroup category), \code{"zebra"} (alternate estimate rows),
-\code{"block"} (alternate analyses) or \code{"none"}.}
+\item{shade}{One of \code{"zebra"} (default, alternate estimate rows),
+\code{"category"} (one band per subgroup category), \code{"block"}
+(alternate analyses) or \code{"none"}.}
 
 \item{colshade}{Colour used for shading.}
 
 \item{squaresize}{Numeric scaling factor for the subgroup-level squares.}
 
 \item{digits}{Integer; digits for estimates and confidence limits.}
+
+\item{digits.data}{Integer; digits for the mean and SD columns.}
 
 \item{file}{One of: \code{character(0)} (default, auto-name); \code{NULL}
 (display only); or an explicit file path.}
@@ -98,6 +101,11 @@ Invisibly returns the file path of the saved plot, or \code{NULL}
 \description{
 Draws one mark per pooled estimate collected by \code{\link{metabind}}: a
 diamond for the pooled estimate of each analysis and a square for each
-subgroup level, grouped under the subgroup category it belongs to.  No
-study-level rows are drawn - use \code{\link{forest_subgroup}} for those.
+subgroup level.  No study-level rows are drawn - use
+\code{\link{forest_subgroup}} for those.
+}
+\details{
+Each analysis opens with a header row carrying its name and, when the object
+was built with \code{subgroup}, the p-value of the omnibus test for subgroup
+differences of every category in brackets.
 }

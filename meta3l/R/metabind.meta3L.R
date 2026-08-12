@@ -125,27 +125,29 @@ bind_qtest <- function(x, subgroup) {
   if (is.null(res_mod)) NA_real_ else as.numeric(res_mod$QMp)
 }
 
-#' Count patients behind a set of effect sizes without double counting (internal)
+#' Summarise each arm of a set of effect sizes without double counting (internal)
 #'
 #' A three-level data set repeats the same patients across the effect sizes of
 #' one cluster (e.g. left and right measurements of the same participants), so
 #' summing the sample-size column over rows inflates the count.  With
-#' \code{method = "max"} the largest sample size reported by each cluster is
-#' taken once and those cluster totals are summed; \code{method = "sum"}
-#' restores the naive row-wise sum for data sets whose rows really are disjoint
-#' patient groups.
+#' \code{method = "max"} each cluster is represented by its largest row, and
+#' those representatives are summed (totals), pooled by sample size (means) or
+#' pooled with the usual within-group formula (SDs).  \code{method = "sum"}
+#' restores the naive row-wise aggregation for data whose rows really are
+#' disjoint patient groups.
 #'
-#' @param dat     Data frame; the rows to count (already subset).
+#' @param dat     Data frame; the rows to summarise (already subset).
 #' @param cluster Character string; name of the cluster column in \code{dat}.
 #' @param measure Character string; the effect size measure, used to pick the
-#'   sample-size columns.
+#'   sample-size, mean and SD columns.
 #' @param method  \code{"max"} (default) or \code{"sum"}.
 #'
-#' @return A named numeric vector \code{c(e = ..., c = ...)}.  For single-arm
-#'   measures the control element is \code{NA_real_}.
+#' @return A named numeric vector with elements \code{n_e}, \code{mean_e},
+#'   \code{sd_e}, \code{n_c}, \code{mean_c}, \code{sd_c}; elements that the
+#'   data cannot supply are \code{NA_real_}.
 #'
 #' @keywords internal
-bind_patients <- function(dat, cluster, measure, method = c("max", "sum")) {
+bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum")) {
   method <- match.arg(method)
 
   pick <- function(cands) {
@@ -155,24 +157,57 @@ bind_patients <- function(dat, cluster, measure, method = c("max", "sum")) {
     if (all(is.na(v))) NULL else v
   }
 
-  if (is_single_arm(measure)) {
-    cols <- list(e = pick(c("n", "ni")), c = NULL)
+  single <- is_single_arm(measure)
+  arms <- if (single) {
+    list(e = list(n = pick(c("n", "ni")), m = NULL, s = NULL))
   } else {
-    cols <- list(e = pick(c("n.e", "n1i")), c = pick(c("n.c", "n2i")))
+    list(
+      e = list(n = pick(c("n.e", "n1i")), m = pick(c("mean.e", "m1i")),
+               s = pick(c("sd.e", "sd1i"))),
+      c = list(n = pick(c("n.c", "n2i")), m = pick(c("mean.c", "m2i")),
+               s = pick(c("sd.c", "sd2i")))
+    )
   }
 
-  count_one <- function(v) {
-    if (is.null(v)) return(NA_real_)
-    if (identical(method, "sum")) return(sum(v, na.rm = TRUE))
-    cl <- dat[[cluster]]
-    per <- vapply(unique(cl), function(k) {
-      vals <- v[cl == k]
-      if (all(is.na(vals))) NA_real_ else max(vals, na.rm = TRUE)
-    }, numeric(1L))
-    sum(per, na.rm = TRUE)
-  }
+  cl <- dat[[cluster]]
+  out <- c(n_e = NA_real_, mean_e = NA_real_, sd_e = NA_real_,
+           n_c = NA_real_, mean_c = NA_real_, sd_c = NA_real_)
 
-  c(e = count_one(cols$e), c = count_one(cols$c))
+  for (side in names(arms)) {
+    a <- arms[[side]]
+    if (is.null(a$n)) next
+
+    # One representative row per cluster keeps repeated measurements of the
+    # same participants from being counted several times
+    if (identical(method, "max")) {
+      idx <- vapply(unique(cl), function(k) {
+        rows <- which(cl == k)
+        rows[which.max(replace(a$n[rows], is.na(a$n[rows]), -Inf))]
+      }, integer(1L))
+    } else {
+      idx <- seq_along(a$n)
+    }
+
+    n <- a$n[idx]
+    out[[paste0("n_", side)]] <- sum(n, na.rm = TRUE)
+
+    if (!is.null(a$m)) {
+      m  <- a$m[idx]
+      ok <- is.finite(n) & is.finite(m)
+      if (any(ok)) {
+        out[[paste0("mean_", side)]] <- sum(m[ok] * n[ok]) / sum(n[ok])
+      }
+    }
+    if (!is.null(a$s)) {
+      sdv <- a$s[idx]
+      ok  <- is.finite(n) & is.finite(sdv) & n > 1
+      if (any(ok)) {
+        out[[paste0("sd_", side)]] <-
+          sqrt(sum((n[ok] - 1) * sdv[ok]^2) / sum(n[ok] - 1))
+      }
+    }
+  }
+  out
 }
 
 # ---------------------------------------------------------------------------
@@ -217,7 +252,7 @@ bind_patients <- function(dat, cluster, measure, method = c("max", "sum")) {
 #' @param patients.method How to count patients without double counting those
 #'   who contribute several effect sizes: \code{"max"} (default) takes the
 #'   largest sample size per cluster, \code{"sum"} adds the rows up.  See
-#'   \code{bind_patients}.
+#'   \code{bind_arm_summary}.
 #' @param name Character string; base name used for auto-generated plot file
 #'   names.  Defaults to \code{"metabind"}.
 #'
@@ -228,7 +263,8 @@ bind_patients <- function(dat, cluster, measure, method = c("max", "sum")) {
 #'       \code{kind} (\code{"overall"} or \code{"level"} for estimate rows),
 #'       \code{label}, \code{est}, \code{lb}, \code{ub}, \code{pval},
 #'       \code{k_eff}, \code{k_clust}, \code{i2}, \code{i2b}, \code{i2w},
-#'       \code{n_e}, \code{n_c}, \code{note}.}
+#'       \code{n_e}, \code{mean_e}, \code{sd_e}, \code{n_c},
+#'       \code{mean_c}, \code{sd_c}, \code{note}.}
 #'     \item{measure}{The shared effect size measure.}
 #'     \item{rho}{Vector of \code{rho} values, one per analysis.}
 #'     \item{group.e, group.c}{Group labels taken from the first analysis.}
@@ -299,8 +335,10 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
   }
 
   # --- Build rows -----------------------------------------------------------
+  na_arms <- c(n_e = NA_real_, mean_e = NA_real_, sd_e = NA_real_,
+               n_c = NA_real_, mean_c = NA_real_, sd_c = NA_real_)
   make_row <- function(block, type, label, kind = "", fit = NULL,
-                       pat = c(e = NA_real_, c = NA_real_), note = "") {
+                       pat = na_arms, note = "") {
     data.frame(
       block   = block,
       type    = type,
@@ -315,8 +353,12 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
       i2      = if (is.null(fit)) NA_real_ else fit$i2$total,
       i2b     = if (is.null(fit)) NA_real_ else fit$i2$between,
       i2w     = if (is.null(fit)) NA_real_ else fit$i2$within,
-      n_e     = unname(pat[["e"]]),
-      n_c     = unname(pat[["c"]]),
+      n_e     = unname(pat[["n_e"]]),
+      mean_e  = unname(pat[["mean_e"]]),
+      sd_e    = unname(pat[["sd_e"]]),
+      n_c     = unname(pat[["n_c"]]),
+      mean_c  = unname(pat[["mean_c"]]),
+      sd_c    = unname(pat[["sd_c"]]),
       note    = note,
       stringsAsFactors = FALSE
     )
@@ -344,7 +386,8 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
       )
       overall_row <- make_row(
         bl, "row", "Overall", kind = "overall", fit = fit_ov,
-        pat = bind_patients(x$data, x$cluster, x$measure, patients.method)
+        pat = bind_arm_summary(x$data, x$cluster, x$measure,
+                               patients.method)
       )
     }
 
@@ -380,8 +423,8 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
           fit <- bind_fit_subset(x, idx)
           rows[[length(rows) + 1L]] <- make_row(
             bl, "row", as.character(l), kind = "level", fit = fit,
-            pat  = bind_patients(x$data[idx, , drop = FALSE], x$cluster,
-                                 x$measure, patients.method),
+            pat  = bind_arm_summary(x$data[idx, , drop = FALSE], x$cluster,
+                                    x$measure, patients.method),
             note = if (fit$ok) "" else "not estimable"
           )
         }
@@ -465,8 +508,12 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #'
 #' Draws one mark per pooled estimate collected by \code{\link{metabind}}: a
 #' diamond for the pooled estimate of each analysis and a square for each
-#' subgroup level, grouped under the subgroup category it belongs to.  No
-#' study-level rows are drawn - use \code{\link{forest_subgroup}} for those.
+#' subgroup level.  No study-level rows are drawn - use
+#' \code{\link{forest_subgroup}} for those.
+#'
+#' Each analysis opens with a header row carrying its name and, when the object
+#' was built with \code{subgroup}, the p-value of the omnibus test for subgroup
+#' differences of every category in brackets.
 #'
 #' @param x A \code{meta3l_bind} object returned by \code{\link{metabind}}.
 #' @param analysis.lab Character string; header of the first column.  Defaults
@@ -487,20 +534,21 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #' @param add.text Footnote describing the model, drawn under the plot.
 #'   \code{TRUE} (default) composes it from the object, \code{FALSE} omits it,
 #'   and a character vector is printed verbatim, one line per element.
-#' @param showpatients Logical; show the patient-count columns (default
-#'   \code{TRUE}).  For two-arm measures the two columns are labelled with the
-#'   group names and grouped under a \code{Patients} header.
+#' @param showdata Logical; show the per-arm data columns (default
+#'   \code{TRUE}).  For two-arm measures these are mean, SD and total for each
+#'   group, headed by the group names; single-arm measures get one total column.
 #' @param showk Logical; show the "Studies" and "Effects" columns
 #'   (default \code{TRUE}).
-#' @param showi2 Logical; show the I-squared column (default \code{TRUE}).
-#' @param showi2.parts Logical; also show the between- and within-cluster
-#'   I-squared columns (default \code{TRUE}).
-#' @param shade One of \code{"category"} (default, one shading band per
-#'   subgroup category), \code{"zebra"} (alternate estimate rows),
-#'   \code{"block"} (alternate analyses) or \code{"none"}.
+#' @param showi2 Logical; show the I-squared columns (default \code{TRUE}).
+#' @param showi2.parts Logical; split I-squared into between- and
+#'   within-cluster columns next to the total (default \code{TRUE}).
+#' @param shade One of \code{"zebra"} (default, alternate estimate rows),
+#'   \code{"category"} (one band per subgroup category), \code{"block"}
+#'   (alternate analyses) or \code{"none"}.
 #' @param colshade Colour used for shading.
 #' @param squaresize Numeric scaling factor for the subgroup-level squares.
 #' @param digits Integer; digits for estimates and confidence limits.
+#' @param digits.data Integer; digits for the mean and SD columns.
 #' @param file One of: \code{character(0)} (default, auto-name); \code{NULL}
 #'   (display only); or an explicit file path.
 #' @param format Character; \code{"png"} (default) or \code{"pdf"}.
@@ -523,14 +571,15 @@ forest.meta3l_bind <- function(x,
                                xlab         = NULL,
                                title        = NULL,
                                add.text     = TRUE,
-                               showpatients = TRUE,
+                               showdata     = TRUE,
                                showk        = TRUE,
                                showi2       = TRUE,
                                showi2.parts = TRUE,
-                               shade        = "category",
+                               shade        = "zebra",
                                colshade     = rgb(0.92, 0.92, 0.92),
                                squaresize   = 1,
                                digits       = 2L,
+                               digits.data  = 1L,
                                file         = character(0),
                                format       = "png",
                                width        = NULL,
@@ -544,10 +593,10 @@ forest.meta3l_bind <- function(x,
   show_pval <- !is_single_arm(measure)
   two_arm   <- !is_single_arm(measure)
 
-  # Patient columns are only drawn when the counts actually exist
-  has_pat_e <- showpatients && any(!is.na(r$n_e))
-  has_pat_c <- showpatients && two_arm && any(!is.na(r$n_c))
-  showpat   <- has_pat_e || has_pat_c
+  has_e <- showdata && any(!is.na(r$n_e))
+  has_c <- showdata && two_arm && any(!is.na(r$n_c))
+  has_ms <- showdata && two_arm &&
+    (any(!is.na(r$mean_e)) || any(!is.na(r$mean_c)))
 
   # -------------------------------------------------------------------
   # 1. Footnote text
@@ -568,19 +617,27 @@ forest.meta3l_bind <- function(x,
   }
 
   # -------------------------------------------------------------------
-  # 2. Row plan: one printed line per row of `rows`, plus separators
+  # 2. Row plan
   # -------------------------------------------------------------------
-  # Block headers are dropped when no subgroup rows exist: with a single
-  # estimate per analysis there is nothing to group.
+  # The subgroup categories do not take rows of their own any more: their
+  # omnibus tests are appended to the analysis header instead.
   drop_block_hdr <- !any(r$type == "sub")
 
-  # The subgroup category no longer gets a row of its own: its levels are held
-  # together by a shading band, and the category name and its omnibus test are
-  # drawn once, vertically centred over that band.
-  plan     <- list()   # each element: list(kind, i, band)
-  bands    <- list()   # each element: list(label, note, plan_from, plan_to)
-  cur_band <- NA_integer_
+  notes_by_block <- list()
+  for (i in which(r$type == "sub")) {
+    if (!nzchar(r$note[i])) next
+    b <- r$block[i]
+    lbl <- gsub("[._]+", " ", r$label[i])
+    lbl <- paste0(toupper(substr(lbl, 1L, 1L)), substr(lbl, 2L, nchar(lbl)))
+    sep <- if (startsWith(r$note[i], "<")) " " else " = "
+    notes_by_block[[b]] <- c(notes_by_block[[b]],
+                             paste0(lbl, " p", sep, r$note[i]))
+  }
+
+  plan <- list()
   prev_block <- NULL
+  band_id <- 0L
+  cur_band <- NA_integer_
   for (i in seq_len(nrow(r))) {
     if (r$type[i] == "block") {
       if (!is.null(prev_block) && !drop_block_hdr) {
@@ -594,70 +651,61 @@ forest.meta3l_bind <- function(x,
       next
     }
     if (r$type[i] == "sub") {
-      bands[[length(bands) + 1L]] <- list(label = r$label[i], note = r$note[i],
-                                          plan_from = NA_integer_,
-                                          plan_to = NA_integer_)
-      cur_band <- length(bands)
+      band_id  <- band_id + 1L
+      cur_band <- band_id
       next
     }
     is_level <- identical(r$kind[i], "level")
-    band_i   <- if (is_level) cur_band else NA_integer_
-    plan[[length(plan) + 1L]] <- list(kind = "row", i = i, band = band_i)
-    if (is_level && !is.na(band_i)) {
-      pos <- length(plan)
-      if (is.na(bands[[band_i]]$plan_from)) bands[[band_i]]$plan_from <- pos
-      bands[[band_i]]$plan_to <- pos
-    }
+    plan[[length(plan) + 1L]] <- list(kind = "row", i = i,
+                                      band = if (is_level) cur_band else
+                                        NA_integer_)
     if (!is_level) cur_band <- NA_integer_
   }
-  bands <- Filter(function(b) !is.na(b$plan_from), bands)
-  has_pdiff <- any(vapply(bands, function(b) nzchar(b$note), logical(1L)))
 
-  n_head_rows  <- if (showpat && has_pat_c) 2L else 1L   # group header + header
+  n_head_rows  <- if (has_ms || (showi2 && showi2.parts)) 2L else 1L
   n_body_rows  <- length(plan)
   n_total_rows <- n_head_rows + n_body_rows + 1L         # + axis row
   if (measure %in% c("SMD", "MD", "RR", "OR")) n_total_rows <- n_total_rows + 1L
   if (!is.null(title) && nzchar(title)) n_total_rows <- n_total_rows + 1L
   if (!is.null(xlab))                   n_total_rows <- n_total_rows + 1L
-  # The footnote sits in the empty text columns beside the axis, so it hugs the
-  # last information row instead of floating below the whole figure.  Extra rows
-  # are only needed when it is longer than the axis / favours / title / xlab
-  # block it shares; that count is settled once the column widths are known.
   n_tail_rows <- n_total_rows - (n_head_rows + n_body_rows)
 
   # -------------------------------------------------------------------
   # 3. Column layout
   # -------------------------------------------------------------------
-  col_names <- c(if (length(bands) > 0L) "cat", "label",
-                 if (has_pat_e) "pat_e",
-                 if (has_pat_c) "pat_c",
+  col_names <- c("label",
                  if (showk) c("studies", "effects"),
-                 if (showi2) "i2",
+                 if (has_e && has_ms) c("e_mean", "e_sd"),
+                 if (has_e) "e_n",
+                 if (has_c && has_ms) c("c_mean", "c_sd"),
+                 if (has_c) "c_n",
                  if (showi2 && showi2.parts) c("i2b", "i2w"),
+                 if (showi2) "i2",
                  "gap1", "ci", "gap2", "results",
-                 if (show_pval) "pval",
-                 if (has_pdiff) "pdiff")
+                 if (show_pval) "pval")
   col_of <- function(nm) {
     j <- match(nm, col_names)
     if (is.na(j)) NA_integer_ else as.integer(j)
   }
 
-  cat_col     <- col_of("cat")
   label_col   <- col_of("label")
-  first_col   <- if (is.na(cat_col)) col_of("label") else cat_col
-  pat_e_col   <- col_of("pat_e")
-  pat_c_col   <- col_of("pat_c")
   studies_col <- col_of("studies")
   effects_col <- col_of("effects")
-  i2_col      <- col_of("i2")
+  e_mean_col  <- col_of("e_mean")
+  e_sd_col    <- col_of("e_sd")
+  e_n_col     <- col_of("e_n")
+  c_mean_col  <- col_of("c_mean")
+  c_sd_col    <- col_of("c_sd")
+  c_n_col     <- col_of("c_n")
   i2b_col     <- col_of("i2b")
   i2w_col     <- col_of("i2w")
+  i2_col      <- col_of("i2")
   gap1_col    <- col_of("gap1")
   ci_col      <- col_of("ci")
   gap2_col    <- col_of("gap2")
   results_col <- col_of("results")
   pval_col    <- col_of("pval")
-  pdiff_col   <- col_of("pdiff")
+  first_col   <- label_col
   last_col    <- length(col_names)
   n_cols      <- last_col
 
@@ -667,46 +715,44 @@ forest.meta3l_bind <- function(x,
   ub_all  <- r$ub[is_row]
 
   disp_label <- function(i) {
-    if (r$type[i] == "block") return(r$label[i])
-    if (r$type[i] == "sub")   return(r$label[i])
-    if (drop_block_hdr)       return(r$block[i])
+    if (r$type[i] == "block") {
+      note <- notes_by_block[[r$label[i]]]
+      if (is.null(note)) return(r$label[i])
+      return(sprintf("%s  (%s)", r$label[i], paste(note, collapse = "; ")))
+    }
+    if (drop_block_hdr) return(r$block[i])
     paste0("  ", r$label[i])
   }
   all_labels <- vapply(seq_len(nrow(r)), disp_label, character(1L))
 
-  cat_chars <- max(c(nchar("Subgroup"),
-                     vapply(bands, function(b) nchar(b$label), integer(1L))),
-                   na.rm = TRUE)
-  cat_w     <- max(2.6, ilab_col_cm(cat_chars))
+  results_lab <- paste0(measure, " [95% CI]")
   label_chars <- max(nchar(all_labels), nchar(analysis.lab), na.rm = TRUE)
   label_w     <- max(4.0, ilab_col_cm(label_chars))
-  pdiff_w     <- 2.0
-  pat_w       <- 1.8
   k_w         <- 1.5
-  i2_w        <- 1.6
+  ms_w        <- 1.7
+  n_w         <- 1.4
+  i2_w        <- 1.4
   gap_w       <- 0.5
   pval_w      <- if (show_pval) 1.8 else 0
   results_chars <- max(
     nchar(sprintf(paste0("%.", digits, "f [%.", digits, "f; %.", digits, "f]"),
                   est_all, lb_all, ub_all)),
-    nchar("Estimate [95% CI]"), na.rm = TRUE
+    nchar(results_lab), na.rm = TRUE
   )
   results_w <- ilab_col_cm(results_chars)
 
   col_widths_cm <- numeric(n_cols)
-  if (!is.na(cat_col)) col_widths_cm[cat_col] <- cat_w
   col_widths_cm[label_col] <- label_w
-  if (has_pdiff) col_widths_cm[pdiff_col] <- pdiff_w
-  if (has_pat_e) col_widths_cm[pat_e_col] <- pat_w
-  if (has_pat_c) col_widths_cm[pat_c_col] <- pat_w
   if (showk) {
     col_widths_cm[studies_col] <- k_w
     col_widths_cm[effects_col] <- k_w
   }
-  if (showi2) col_widths_cm[i2_col] <- i2_w
-  if (showi2 && showi2.parts) {
-    col_widths_cm[i2b_col] <- i2_w
-    col_widths_cm[i2w_col] <- i2_w
+  for (j in c(e_mean_col, e_sd_col, c_mean_col, c_sd_col)) {
+    if (!is.na(j)) col_widths_cm[j] <- ms_w
+  }
+  for (j in c(e_n_col, c_n_col)) if (!is.na(j)) col_widths_cm[j] <- n_w
+  for (j in c(i2b_col, i2w_col, i2_col)) {
+    if (!is.na(j)) col_widths_cm[j] <- i2_w
   }
   col_widths_cm[gap1_col]    <- gap_w
   col_widths_cm[gap2_col]    <- gap_w
@@ -716,8 +762,6 @@ forest.meta3l_bind <- function(x,
   other_cm <- sum(col_widths_cm)
   ci_cm    <- max(min(7, other_cm * 0.6), 4)
 
-  # Wrap the footnote to the text columns it is drawn in (roughly 0.115 cm per
-  # character at cex 0.65) and settle the final row count
   if (length(foot) > 0L) {
     foot_cm    <- sum(col_widths_cm[label_col:gap1_col])
     foot_chars <- max(40L, as.integer(foot_cm / 0.14))
@@ -749,17 +793,12 @@ forest.meta3l_bind <- function(x,
   # -------------------------------------------------------------------
   # 4. xlim, refline
   # -------------------------------------------------------------------
-  # A single very imprecise subgroup would otherwise stretch the axis until
-  # every other interval collapses onto the reference line, so by default the
-  # limits ignore the most extreme confidence bounds; every estimate still fits
-  # and truncated intervals are drawn with arrows.
   xlim_final <- if (!is.null(xlim)) {
     xlim
   } else if (xlim.trim < 1) {
     q_lo <- stats::quantile(lb_all, 1 - xlim.trim, na.rm = TRUE, names = FALSE)
     q_hi <- stats::quantile(ub_all, xlim.trim,     na.rm = TRUE, names = FALSE)
-    auto_xlim(measure, est_all,
-              pmax(lb_all, q_lo), pmin(ub_all, q_hi))
+    auto_xlim(measure, est_all, pmax(lb_all, q_lo), pmin(ub_all, q_hi))
   } else {
     auto_xlim(measure, est_all, lb_all, ub_all)
   }
@@ -770,18 +809,17 @@ forest.meta3l_bind <- function(x,
   # -------------------------------------------------------------------
   # 5. Row heights and device
   # -------------------------------------------------------------------
-  # Heights are fixed ("lines"), so the device must be tall enough to hold
-  # them; otherwise grid centres the layout and the outer rows fall off the
-  # canvas.
   rh <- rep(1.2, n_total_rows)
-  if (n_head_rows == 2L) rh[1L] <- 1.1                # "Patients" group header
-  rh[n_head_rows] <- 1.6                              # column header row
+  if (n_head_rows == 2L) rh[1L] <- 1.1
+  rh[n_head_rows] <- 1.6
   for (p in seq_along(plan)) {
     kind <- plan[[p]]$kind
     if (identical(kind, "row"))   rh[n_head_rows + p] <- 1.15
     if (identical(kind, "block")) rh[n_head_rows + p] <- 1.35
     if (identical(kind, "gap"))   rh[n_head_rows + p] <- 0.35
   }
+  # The axis row holds the tick labels below the line, so it needs the room
+  rh[n_head_rows + n_body_rows + 1L] <- 1.9
 
   out_file <- resolve_file(x, file, format)
   dims     <- auto_dims(n_total_rows, width, height)
@@ -789,7 +827,6 @@ forest.meta3l_bind <- function(x,
   auto_w   <- as.integer(total_cm * 300 / 2.54) + 300L
   if (is.null(width)) dims$width <- max(dims$width, auto_w)
   if (is.null(height)) {
-    # 1 line = 14.4 pt = 0.2 in at the default 12 pt fontsize; 0.7 in padding
     dims$height <- as.integer((sum(rh) * 0.2 + 0.7) * 300)
   }
 
@@ -836,6 +873,14 @@ forest.meta3l_bind <- function(x,
                                       layout.pos.col = col_from:col_to,
                                       xscale = xscale, clip = clip))
   }
+  txt <- function(row, col, s, gp, just = "centre",
+                  xpos = if (identical(just, "left")) 0 else 0.5) {
+    if (is.na(col) || !nzchar(s)) return(invisible(NULL))
+    push_cell(row, col)
+    grid::grid.text(s, x = grid::unit(xpos, "npc"), y = grid::unit(0.5, "npc"),
+                    just = just, gp = gp)
+    grid::popViewport()
+  }
 
   bold_gp  <- grid::gpar(fontface = "bold", cex = 0.75)
   norm_gp  <- grid::gpar(cex = 0.75)
@@ -856,88 +901,59 @@ forest.meta3l_bind <- function(x,
   # -------------------------------------------------------------------
   # 7. Header rows
   # -------------------------------------------------------------------
-  if (!is.na(cat_col)) {
-    push_cell(n_head_rows, cat_col)
-    grid::grid.text("Subgroup", x = grid::unit(0, "npc"), just = "left",
-                    gp = bold_gp)
-    grid::popViewport()
-  }
-  if (has_pdiff) {
-    push_cell(n_head_rows, pdiff_col)
-    grid::grid.text("p (diff)", x = grid::unit(0.5, "npc"), just = "centre",
-                    gp = bold_gp)
-    grid::popViewport()
-  }
-  if (n_head_rows == 2L) {
-    push_span(1L, pat_e_col, pat_c_col)
-    grid::grid.text("Patients", x = grid::unit(0.5, "npc"), just = "centre",
-                    gp = bold_gp)
-    grid::popViewport()
-  }
-
   hdr_row <- n_head_rows
 
-  push_cell(hdr_row, label_col)
-  grid::grid.text(analysis.lab, x = grid::unit(0, "npc"), just = "left",
-                  gp = bold_gp)
-  grid::popViewport()
-
-  if (has_pat_e) {
-    lab_e <- if (has_pat_c) {
-      if (!is.null(x$group.e)) x$group.e else "Treatment"
-    } else {
-      "Patients"
+  if (n_head_rows == 2L) {
+    if (has_e && has_ms) {
+      push_span(1L, e_mean_col, e_n_col)
+      grid::grid.text(if (!is.null(x$group.e)) x$group.e else "Treatment",
+                      x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+      grid::popViewport()
     }
-    push_cell(hdr_row, pat_e_col)
-    grid::grid.text(lab_e, x = grid::unit(0.5, "npc"), just = "centre",
-                    gp = bold_gp)
-    grid::popViewport()
-  }
-  if (has_pat_c) {
-    push_cell(hdr_row, pat_c_col)
-    grid::grid.text(if (!is.null(x$group.c)) x$group.c else "Control",
-                    x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
-    grid::popViewport()
+    if (has_c && has_ms) {
+      push_span(1L, c_mean_col, c_n_col)
+      grid::grid.text(if (!is.null(x$group.c)) x$group.c else "Control",
+                      x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
+      grid::popViewport()
+    }
+    if (showi2 && showi2.parts) {
+      push_span(1L, i2b_col, i2_col)
+      grid::grid.text("I\u00b2", x = grid::unit(0.5, "npc"), just = "centre",
+                      gp = bold_gp)
+      grid::popViewport()
+    }
   }
 
+  txt(hdr_row, label_col, analysis.lab, bold_gp, just = "left")
   if (showk) {
-    push_cell(hdr_row, studies_col)
-    grid::grid.text("Studies", x = grid::unit(0.5, "npc"), just = "centre",
-                    gp = bold_gp)
-    grid::popViewport()
-    push_cell(hdr_row, effects_col)
-    grid::grid.text("Effects", x = grid::unit(0.5, "npc"), just = "centre",
-                    gp = bold_gp)
-    grid::popViewport()
+    txt(hdr_row, studies_col, "Studies", bold_gp)
+    txt(hdr_row, effects_col, "Effects", bold_gp)
+  }
+  if (has_e) {
+    if (has_ms) {
+      txt(hdr_row, e_mean_col, "Mean", bold_gp)
+      txt(hdr_row, e_sd_col,   "SD",   bold_gp)
+    }
+    txt(hdr_row, e_n_col, if (has_ms) "Total" else "Patients", bold_gp)
+  }
+  if (has_c) {
+    if (has_ms) {
+      txt(hdr_row, c_mean_col, "Mean", bold_gp)
+      txt(hdr_row, c_sd_col,   "SD",   bold_gp)
+    }
+    txt(hdr_row, c_n_col, "Total", bold_gp)
   }
   if (showi2) {
-    push_cell(hdr_row, i2_col)
-    grid::grid.text("I\u00b2", x = grid::unit(0.5, "npc"), just = "centre",
-                    gp = bold_gp)
-    grid::popViewport()
     if (showi2.parts) {
-      push_cell(hdr_row, i2b_col)
-      grid::grid.text("I\u00b2 btw", x = grid::unit(0.5, "npc"),
-                      just = "centre", gp = bold_gp)
-      grid::popViewport()
-      push_cell(hdr_row, i2w_col)
-      grid::grid.text("I\u00b2 wth", x = grid::unit(0.5, "npc"),
-                      just = "centre", gp = bold_gp)
-      grid::popViewport()
+      txt(hdr_row, i2b_col, "btw", bold_gp)
+      txt(hdr_row, i2w_col, "wth", bold_gp)
+      txt(hdr_row, i2_col,  "total", bold_gp)
+    } else {
+      txt(hdr_row, i2_col, "I\u00b2", bold_gp)
     }
   }
-
-  push_cell(hdr_row, results_col)
-  grid::grid.text("Estimate [95% CI]", x = grid::unit(0.5, "npc"),
-                  just = "centre", gp = bold_gp)
-  grid::popViewport()
-
-  if (show_pval) {
-    push_cell(hdr_row, pval_col)
-    grid::grid.text("p-value", x = grid::unit(0.5, "npc"), just = "centre",
-                    gp = bold_gp)
-    grid::popViewport()
-  }
+  txt(hdr_row, results_col, results_lab, bold_gp)
+  if (show_pval) txt(hdr_row, pval_col, "p-value", bold_gp)
 
   method_gp <- grid::gpar(fontface = "bold", cex = 0.65)
   push_cell(hdr_row, ci_col)
@@ -955,7 +971,10 @@ forest.meta3l_bind <- function(x,
   block_ids <- as.integer(factor(r$block, levels = unique(r$block)))
   row_seq   <- 0L
   fmt_est   <- paste0("%.", digits, "f [%.", digits, "f; %.", digits, "f]")
-  fmt_count <- function(v) if (is.na(v)) "" else format(round(v))
+  fmt_int   <- function(v) if (is.na(v)) "" else format(round(v))
+  fmt_num   <- function(v) if (is.na(v)) "" else
+    sprintf(paste0("%.", digits.data, "f"), v)
+  fmt_pct   <- function(v) if (is.na(v)) "" else sprintf("%.0f%%", v)
 
   for (p in seq_along(plan)) {
     row_i <- n_head_rows + p
@@ -966,17 +985,15 @@ forest.meta3l_bind <- function(x,
       next
     }
 
-    i <- plan[[p]]$i
-
-    # Shading: by default a band per subgroup category, so the levels of one
-    # category read as a group now that the category has no row of its own
+    i      <- plan[[p]]$i
     band_i <- plan[[p]]$band
-    do_shade <- if (identical(shade, "category")) {
+
+    do_shade <- if (identical(shade, "zebra")) {
+      identical(kind, "row") && (row_seq + 1L) %% 2L == 0L
+    } else if (identical(shade, "category")) {
       !is.na(band_i) && band_i %% 2L == 1L
     } else if (identical(shade, "block")) {
       block_ids[i] %% 2L == 1L
-    } else if (identical(shade, "zebra") && identical(kind, "row")) {
-      (row_seq + 1L) %% 2L == 0L
     } else {
       FALSE
     }
@@ -995,40 +1012,35 @@ forest.meta3l_bind <- function(x,
       next
     }
 
-    # --- Estimate row -------------------------------------------------
     row_seq <- row_seq + 1L
     is_overall <- identical(r$kind[i], "overall")
-    # Values stay in the regular weight - only the row label marks a pooled row
-    txt_gp <- norm_gp
     lbl_gp <- if (is_overall) bold_gp else norm_gp
 
-    push_cell(row_i, label_col)
-    grid::grid.text(all_labels[i], x = grid::unit(0, "npc"),
-                    y = grid::unit(0.5, "npc"), just = "left", gp = lbl_gp)
-    grid::popViewport()
-
-    cell_text <- function(col, txt) {
-      if (is.na(col) || !nzchar(txt)) return(invisible(NULL))
-      push_cell(row_i, col)
-      grid::grid.text(txt, x = grid::unit(0.5, "npc"),
-                      y = grid::unit(0.5, "npc"), just = "centre", gp = txt_gp)
-      grid::popViewport()
-    }
-
-    if (has_pat_e) cell_text(pat_e_col, fmt_count(r$n_e[i]))
-    if (has_pat_c) cell_text(pat_c_col, fmt_count(r$n_c[i]))
+    txt(row_i, label_col, all_labels[i], lbl_gp, just = "left")
     if (showk) {
-      cell_text(studies_col, fmt_count(r$k_clust[i]))
-      cell_text(effects_col, fmt_count(r$k_eff[i]))
+      txt(row_i, studies_col, fmt_int(r$k_clust[i]), norm_gp)
+      txt(row_i, effects_col, fmt_int(r$k_eff[i]),   norm_gp)
+    }
+    if (has_e) {
+      if (has_ms) {
+        txt(row_i, e_mean_col, fmt_num(r$mean_e[i]), norm_gp)
+        txt(row_i, e_sd_col,   fmt_num(r$sd_e[i]),   norm_gp)
+      }
+      txt(row_i, e_n_col, fmt_int(r$n_e[i]), norm_gp)
+    }
+    if (has_c) {
+      if (has_ms) {
+        txt(row_i, c_mean_col, fmt_num(r$mean_c[i]), norm_gp)
+        txt(row_i, c_sd_col,   fmt_num(r$sd_c[i]),   norm_gp)
+      }
+      txt(row_i, c_n_col, fmt_int(r$n_c[i]), norm_gp)
     }
     if (showi2) {
-      cell_text(i2_col, if (is.na(r$i2[i])) "" else sprintf("%.0f%%", r$i2[i]))
       if (showi2.parts) {
-        cell_text(i2b_col,
-                  if (is.na(r$i2b[i])) "" else sprintf("%.0f%%", r$i2b[i]))
-        cell_text(i2w_col,
-                  if (is.na(r$i2w[i])) "" else sprintf("%.0f%%", r$i2w[i]))
+        txt(row_i, i2b_col, fmt_pct(r$i2b[i]), norm_gp)
+        txt(row_i, i2w_col, fmt_pct(r$i2w[i]), norm_gp)
       }
+      txt(row_i, i2_col, fmt_pct(r$i2[i]), norm_gp)
     }
 
     draw_refline(row_i)
@@ -1042,22 +1054,18 @@ forest.meta3l_bind <- function(x,
           min(r$ub[i], xlim_final[2]),
           y_center = 0.5
         )
-        # Flag a diamond whose interval runs past the panel, otherwise the
-        # clipped tip reads as a genuine end point
         for (side in c(1L, 2L)) {
           runs_off <- if (side == 1L) r$lb[i] < xlim_final[1] else
             r$ub[i] > xlim_final[2]
           if (!runs_off) next
-          edge <- xlim_final[side]
+          edge  <- xlim_final[side]
           inner <- edge + (if (side == 1L) 1 else -1) * diff(xlim_final) * 0.03
           grid::grid.segments(
-            x0    = grid::unit(inner, "native"),
-            x1    = grid::unit(edge, "native"),
-            y0    = grid::unit(0.5, "npc"),
-            y1    = grid::unit(0.5, "npc"),
+            x0 = grid::unit(inner, "native"), x1 = grid::unit(edge, "native"),
+            y0 = grid::unit(0.5, "npc"), y1 = grid::unit(0.5, "npc"),
             arrow = grid::arrow(ends = "last",
                                 length = grid::unit(0.05, "inches")),
-            gp    = grid::gpar(lwd = 1)
+            gp = grid::gpar(lwd = 1)
           )
         }
       } else {
@@ -1069,81 +1077,32 @@ forest.meta3l_bind <- function(x,
           arrow_ends <- if (trunc_left && trunc_right) "both" else
             if (trunc_left) "first" else "last"
           grid::grid.segments(
-            x0    = grid::unit(lb_draw, "native"),
-            x1    = grid::unit(ub_draw, "native"),
-            y0    = grid::unit(0.5, "npc"),
-            y1    = grid::unit(0.5, "npc"),
-            arrow = grid::arrow(ends = arrow_ends,
-                                length = grid::unit(0.05, "inches")),
-            gp    = grid::gpar(lwd = 1)
-          )
-        } else {
-          grid::grid.segments(
             x0 = grid::unit(lb_draw, "native"),
             x1 = grid::unit(ub_draw, "native"),
-            y0 = grid::unit(0.5, "npc"),
-            y1 = grid::unit(0.5, "npc"),
+            y0 = grid::unit(0.5, "npc"), y1 = grid::unit(0.5, "npc"),
+            arrow = grid::arrow(ends = arrow_ends,
+                                length = grid::unit(0.05, "inches")),
             gp = grid::gpar(lwd = 1)
           )
+        } else {
+          draw_ci_line(lb_draw, ub_draw)
         }
         if (r$est[i] >= xlim_final[1] && r$est[i] <= xlim_final[2]) {
-          grid::grid.rect(
-            x      = grid::unit(r$est[i], "native"),
-            y      = grid::unit(0.5, "npc"),
-            width  = grid::unit(0.55 * squaresize, "lines"),
-            height = grid::unit(0.55 * squaresize, "lines"),
-            just   = "centre",
-            gp     = grid::gpar(fill = "black", col = "black")
-          )
+          draw_square(r$est[i], 0.55 * squaresize)
         }
       }
       grid::popViewport()
 
-      push_cell(row_i, results_col)
-      grid::grid.text(sprintf(fmt_est, r$est[i], r$lb[i], r$ub[i]),
-                      x = grid::unit(0.5, "npc"), y = grid::unit(0.5, "npc"),
-                      just = "centre", gp = txt_gp)
-      grid::popViewport()
+      txt(row_i, results_col,
+          sprintf(fmt_est, r$est[i], r$lb[i], r$ub[i]),
+          if (is_overall) bold_gp else norm_gp)
 
       if (show_pval && !is.na(r$pval[i])) {
         pv <- if (r$pval[i] < 0.001) "<0.001" else sprintf("%.4f", r$pval[i])
-        cell_text(pval_col, pv)
+        txt(row_i, pval_col, pv, if (is_overall) bold_gp else norm_gp)
       }
     } else {
-      push_cell(row_i, results_col)
-      grid::grid.text("not estimable", x = grid::unit(0.5, "npc"),
-                      y = grid::unit(0.5, "npc"), just = "centre",
-                      gp = small_gp)
-      grid::popViewport()
-    }
-  }
-
-  # -------------------------------------------------------------------
-  # 8b. Category name and omnibus test, centred over each band
-  # -------------------------------------------------------------------
-  # Category names come from column names, so tidy them for display
-  pretty_cat <- function(s) {
-    s <- gsub("[._]+", " ", s)
-    paste0(toupper(substr(s, 1L, 1L)), substr(s, 2L, nchar(s)))
-  }
-  for (b in bands) {
-    rows_b <- (n_head_rows + b$plan_from):(n_head_rows + b$plan_to)
-    if (!is.na(cat_col)) {
-      grid::pushViewport(grid::viewport(layout.pos.row = rows_b,
-                                        layout.pos.col = cat_col, clip = "on"))
-      grid::grid.text(pretty_cat(b$label), x = grid::unit(0, "npc"),
-                      y = grid::unit(0.5, "npc"), just = "left",
-                      gp = grid::gpar(cex = 0.72, fontface = "bold"))
-      grid::popViewport()
-    }
-    if (has_pdiff && nzchar(b$note)) {
-      grid::pushViewport(grid::viewport(layout.pos.row = rows_b,
-                                        layout.pos.col = pdiff_col,
-                                        clip = "on"))
-      grid::grid.text(b$note, x = grid::unit(0.5, "npc"),
-                      y = grid::unit(0.5, "npc"), just = "centre",
-                      gp = small_gp)
-      grid::popViewport()
+      txt(row_i, results_col, "not estimable", small_gp)
     }
   }
 
@@ -1165,11 +1124,12 @@ forest.meta3l_bind <- function(x,
       grid::grid.segments(
         x0 = grid::unit(.tick, "native"), x1 = grid::unit(.tick, "native"),
         y0 = grid::unit(1, "npc"),
-        y1 = grid::unit(1, "npc") - grid::unit(0.4, "lines"),
+        y1 = grid::unit(1, "npc") - grid::unit(0.35, "lines"),
         gp = grid::gpar(lwd = 1)
       )
+      # Tick labels clear the marks, otherwise the numbers sit on the ticks
       grid::grid.text(format(.tick), x = grid::unit(.tick, "native"),
-                      y = grid::unit(1, "npc") - grid::unit(0.9, "lines"),
+                      y = grid::unit(1, "npc") - grid::unit(1.05, "lines"),
                       gp = grid::gpar(cex = 0.65))
     }
   }
@@ -1209,12 +1169,10 @@ forest.meta3l_bind <- function(x,
     current_row <- current_row + 1L
   }
 
-  # Footnote: left text columns of the axis row onwards, so it starts directly
-  # under the last information row
   foot_row <- n_head_rows + n_body_rows + 1L
   for (line in foot) {
     push_span(foot_row, first_col, gap1_col, clip = "on")
-    grid::grid.text(line, x = grid::unit(0, "npc"), y = grid::unit(0.5, "npc"),
+    grid::grid.text(line, x = grid::unit(0, "npc"), y = grid::unit(0.6, "npc"),
                     just = "left", gp = small_gp)
     grid::popViewport()
     foot_row <- foot_row + 1L
