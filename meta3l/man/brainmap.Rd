@@ -10,6 +10,8 @@ brainmap(x, ...)
 \method{brainmap}{meta3l_bind}(
   x,
   view = "axial_5",
+  panels = NULL,
+  panel.labs = NULL,
   palette = "Okeeffe1",
   direction = 1,
   value = c("estimate", "abs"),
@@ -36,6 +38,15 @@ brainmap(x, ...)
 \item{view}{Character; atlas view to draw.  One of the views of
 \code{ggseg::aseg()}; \code{"axial_5"} (default) is the slice that carries
 caudate, putamen, pallidum, thalamus and VentralDC together.}
+
+\item{panels}{Character vector selecting what each panel shows: the keyword
+\code{"Overall"} for the pooled estimate of every analysis, or the label of
+a subgroup level present in the object (e.g. \code{"Neuro Wilson"}).
+\code{NULL} (default) draws a single overall panel.  All panels share one
+colour scale so they can be compared.}
+
+\item{panel.labs}{Character vector of panel titles, one per entry of
+\code{panels}.  \code{NULL} (default) uses the panel keys themselves.}
 
 \item{palette}{Character; \pkg{MetBrewer} palette name.  Defaults to
 \code{"Okeeffe1"}.}
