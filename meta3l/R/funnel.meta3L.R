@@ -272,6 +272,10 @@ funnel_draw <- function(objs, title, xlab, ylab, xlim, test,
   ))
   for (i in seq_len(n)) {
     grid::pushViewport(grid::viewport(layout.pos.col = i))
+    # frame each panel, as the brain map does
+    grid::grid.rect(width  = grid::unit(1, "npc") - grid::unit(0.25, "cm"),
+                    height = grid::unit(1, "npc") - grid::unit(0.25, "cm"),
+                    gp = grid::gpar(fill = NA, col = "grey45", lwd = 0.6))
     funnel_panel(objs[[i]], names(objs)[i], xlab, ylab, xlim)
     grid::popViewport()
   }
