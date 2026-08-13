@@ -3,10 +3,12 @@
 
 #' Funnel plot for three-level meta-analysis results
 #'
-#' @param x A \code{meta3l_result} object returned by \code{\link{meta3L}}.
+#' @param x A \code{meta3l_result} object returned by \code{\link{meta3L}}, or
+#'   a (optionally named) list of them, in which case one panel is drawn per
+#'   analysis and the asymmetry tests are summarised in a single table.
 #' @param ... Further arguments passed to the method.
 #'
-#' @return Invisibly, a list with the asymmetry test and the file path.
+#' @return Invisibly, a list with the asymmetry test(s) and the file path.
 #'
 #' @export
 funnel <- function(x, ...) UseMethod("funnel")
@@ -61,22 +63,247 @@ funnel_asymmetry <- function(x) {
   )
 }
 
+#' Default x-axis label for an effect size measure (internal)
+#'
+#' @param measure Character string.
+#' @return Character string.
+#' @keywords internal
+funnel_xlab <- function(measure) {
+  switch(measure,
+         MD  = "Mean difference",
+         SMD = "Standardised mean difference",
+         RR  = "Log risk ratio",
+         OR  = "Log odds ratio",
+         "Effect size")
+}
+
+#' Draw one funnel panel in the current viewport (internal)
+#'
+#' @param x     A \code{meta3l_result} object.
+#' @param label Character; panel heading.
+#' @param xlab  Character; x-axis label.
+#' @param ylab  Character; y-axis label.
+#' @param xlim  Numeric length 2 or \code{NULL}.
+#' @return Invisibly \code{NULL}.
+#' @keywords internal
+funnel_panel <- function(x, label, xlab, ylab, xlim = NULL) {
+  dat <- x$data
+  yi  <- dat$yi
+  sei <- sqrt(dat$vi)
+  est <- as.numeric(x$model$b)
+
+  se_max <- max(sei, na.rm = TRUE) * 1.05
+  if (is.null(xlim)) {
+    span <- max(abs(c(yi, est + 1.96 * se_max, est - 1.96 * se_max) - est),
+                na.rm = TRUE)
+    xlim <- c(est - span * 1.05, est + span * 1.05)
+  }
+
+  grid::pushViewport(grid::viewport(
+    width  = grid::unit(1, "npc") - grid::unit(2.6, "cm"),
+    height = grid::unit(1, "npc") - grid::unit(2.6, "cm"),
+    xscale = xlim, yscale = c(se_max, 0)
+  ))
+
+  grid::grid.polygon(
+    x  = grid::unit(c(est, est - 1.96 * se_max, est + 1.96 * se_max), "native"),
+    y  = grid::unit(c(0, se_max, se_max), "native"),
+    gp = grid::gpar(fill = rgb(0.94, 0.94, 0.94), col = "grey60", lty = "22")
+  )
+  grid::grid.segments(
+    x0 = grid::unit(est, "native"), x1 = grid::unit(est, "native"),
+    y0 = grid::unit(0, "native"),   y1 = grid::unit(se_max, "native"),
+    gp = grid::gpar(col = "grey30", lwd = 0.8)
+  )
+  keep <- is.finite(yi) & is.finite(sei)
+  grid::grid.points(
+    x   = grid::unit(pmin(pmax(yi[keep], xlim[1]), xlim[2]), "native"),
+    y   = grid::unit(sei[keep], "native"),
+    pch = 21,
+    gp  = grid::gpar(fill = rgb(0.35, 0.35, 0.35, 0.6), col = "grey15",
+                     cex = 0.5)
+  )
+  grid::grid.rect(gp = grid::gpar(fill = NA, col = "grey40", lwd = 0.7))
+  grid::grid.xaxis(gp = grid::gpar(cex = 0.6))
+  grid::grid.yaxis(gp = grid::gpar(cex = 0.6))
+  grid::grid.text(xlab, y = grid::unit(-2.6, "lines"),
+                  gp = grid::gpar(cex = 0.7))
+  grid::grid.text(ylab, x = grid::unit(-3.0, "lines"), rot = 90,
+                  gp = grid::gpar(cex = 0.7))
+  if (!is.null(label) && nzchar(label)) {
+    grid::grid.text(label, y = grid::unit(1, "npc") + grid::unit(1, "lines"),
+                    gp = grid::gpar(cex = 0.8, fontface = "bold"))
+  }
+  grid::popViewport()
+  invisible(NULL)
+}
+
+#' Draw the asymmetry results as a table in the current viewport (internal)
+#'
+#' @param rows Data frame with columns \code{analysis}, \code{slope},
+#'   \code{ci.lb}, \code{ci.ub}, \code{pval}, \code{k_clust}.
+#' @return Invisibly \code{NULL}.
+#' @keywords internal
+funnel_table <- function(rows) {
+  hdr <- c("Analysis", "Slope", "Lower", "Upper", "p-value", "Studies")
+  body <- cbind(
+    rows$analysis,
+    sprintf("%.2f", rows$slope),
+    sprintf("%.2f", rows$ci.lb),
+    sprintf("%.2f", rows$ci.ub),
+    ifelse(rows$pval < 0.001, "<0.001", sprintf("%.4f", rows$pval)),
+    format(rows$k_clust)
+  )
+  n_rows <- nrow(body) + 1L
+  widths <- grid::unit.c(
+    grid::unit(max(4, ilab_col_cm(max(nchar(c(hdr[1], rows$analysis))))), "cm"),
+    grid::unit(rep(1.9, 4), "cm"),
+    grid::unit(1.7, "cm")
+  )
+
+  grid::pushViewport(grid::viewport(
+    layout = grid::grid.layout(nrow = n_rows, ncol = 6L, widths = widths,
+                               heights = grid::unit(rep(1.15, n_rows), "lines")),
+    width  = grid::unit(sum(as.numeric(grid::convertWidth(widths, "cm"))), "cm")
+  ))
+
+  cell <- function(r, c, txt, gp, just = "centre") {
+    grid::pushViewport(grid::viewport(layout.pos.row = r, layout.pos.col = c))
+    grid::grid.text(txt, x = grid::unit(if (identical(just, "left")) 0 else 0.5,
+                                        "npc"),
+                    just = just, gp = gp)
+    grid::popViewport()
+  }
+
+  bold_gp <- grid::gpar(cex = 0.7, fontface = "bold")
+  norm_gp <- grid::gpar(cex = 0.7)
+
+  for (j in seq_along(hdr)) {
+    cell(1L, j, hdr[j], bold_gp, just = if (j == 1L) "left" else "centre")
+  }
+  # rule under the header
+  grid::pushViewport(grid::viewport(layout.pos.row = 1L, layout.pos.col = 1:6))
+  grid::grid.segments(x0 = 0, x1 = 1, y0 = 0, y1 = 0,
+                      gp = grid::gpar(col = "grey40", lwd = 0.7))
+  grid::popViewport()
+
+  for (i in seq_len(nrow(body))) {
+    for (j in seq_len(ncol(body))) {
+      cell(i + 1L, j, body[i, j], norm_gp,
+           just = if (j == 1L) "left" else "centre")
+    }
+  }
+  grid::popViewport()
+  invisible(NULL)
+}
+
 # ---------------------------------------------------------------------------
-# S3 method
+# Internal engine shared by both methods
 # ---------------------------------------------------------------------------
 
-#' @param min.studies Integer; the plot is only produced when the analysis has
-#'   at least this many study clusters (default \code{10}, the usual threshold
-#'   for assessing funnel plot asymmetry).  Note that the count is of studies,
-#'   not of effect sizes.
+#' Draw funnel panels and their asymmetry table (internal)
+#'
+#' @param objs Named list of \code{meta3l_result} objects to draw.
+#' @param title,xlab,ylab,xlim,test,file,format,width,height As in
+#'   \code{\link{funnel}}.
+#' @return Invisibly a list with \code{test} and \code{file}.
+#' @keywords internal
+funnel_draw <- function(objs, title, xlab, ylab, xlim, test,
+                        file, format, width, height, name_for_file) {
+  n <- length(objs)
+  measure <- objs[[1L]]$measure
+  if (is.null(xlab)) xlab <- funnel_xlab(measure)
+
+  res <- lapply(objs, function(o) if (isTRUE(test)) funnel_asymmetry(o) else NULL)
+  tab <- NULL
+  if (isTRUE(test) && any(!vapply(res, is.null, logical(1L)))) {
+    keep <- !vapply(res, is.null, logical(1L))
+    tab <- data.frame(
+      analysis = names(objs)[keep],
+      slope    = vapply(res[keep], function(r) r$slope, numeric(1L)),
+      ci.lb    = vapply(res[keep], function(r) r$ci.lb, numeric(1L)),
+      ci.ub    = vapply(res[keep], function(r) r$ci.ub, numeric(1L)),
+      pval     = vapply(res[keep], function(r) r$pval, numeric(1L)),
+      k_clust  = vapply(res[keep], function(r) r$k_clust, numeric(1L)),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  out_file <- resolve_file(list(name = name_for_file), file, format,
+                           suffix = "funnel")
+  w <- if (!is.null(width))  width  else as.integer(1750 * n + 350)
+  tab_lines <- if (is.null(tab)) 0 else (nrow(tab) + 1) * 1.15 + 1.5
+  h <- if (!is.null(height)) height else
+    as.integer(1900 + tab_lines * 60)
+
+  if (!is.null(out_file)) {
+    if (identical(format, "pdf")) {
+      grDevices::pdf(out_file, width = w / 300, height = h / 300)
+    } else {
+      grDevices::png(out_file, width = w, height = h, res = 300L)
+    }
+  } else {
+    grDevices::pdf(nullfile(), width = w / 300, height = h / 300)
+  }
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  grid::grid.newpage()
+  has_title <- !is.null(title) && nzchar(title)
+  heights <- grid::unit.c(
+    grid::unit(if (has_title) 2 else 0.4, "lines"),
+    grid::unit(1, "null"),
+    grid::unit(if (is.null(tab)) 0.4 else tab_lines, "lines")
+  )
+  grid::pushViewport(grid::viewport(
+    layout = grid::grid.layout(nrow = 3L, ncol = 1L, heights = heights),
+    width  = grid::unit(1, "npc") - grid::unit(0.6, "cm"),
+    height = grid::unit(1, "npc") - grid::unit(0.6, "cm")
+  ))
+
+  if (has_title) {
+    grid::pushViewport(grid::viewport(layout.pos.row = 1L))
+    grid::grid.text(title, gp = grid::gpar(cex = 1.0, fontface = "bold"))
+    grid::popViewport()
+  }
+
+  grid::pushViewport(grid::viewport(
+    layout.pos.row = 2L,
+    layout = grid::grid.layout(nrow = 1L, ncol = n)
+  ))
+  for (i in seq_len(n)) {
+    grid::pushViewport(grid::viewport(layout.pos.col = i))
+    funnel_panel(objs[[i]], names(objs)[i], xlab, ylab, xlim)
+    grid::popViewport()
+  }
+  grid::popViewport()
+
+  if (!is.null(tab)) {
+    grid::pushViewport(grid::viewport(layout.pos.row = 3L))
+    funnel_table(tab)
+    grid::popViewport()
+  }
+  grid::popViewport()
+
+  invisible(list(test = if (n == 1L) res[[1L]] else res, file = out_file,
+                 table = tab, skipped = FALSE))
+}
+
+# ---------------------------------------------------------------------------
+# S3 methods
+# ---------------------------------------------------------------------------
+
+#' @param min.studies Integer; an analysis is only drawn when it has at least
+#'   this many study clusters (default \code{10}, the usual threshold for
+#'   assessing funnel plot asymmetry).  The count is of studies, not of effect
+#'   sizes.
 #' @param xlim Numeric vector of length 2; x-axis limits.  \code{NULL}
-#'   auto-computes.
+#'   auto-computes per panel.
 #' @param xlab Character string; x-axis label.  \code{NULL} derives it from the
 #'   measure.
 #' @param ylab Character string; y-axis label.
-#' @param title Character string; plot title.  Defaults to \code{x$name}.
-#' @param test Logical; run the asymmetry test and print it under the plot
-#'   (default \code{TRUE}).
+#' @param title Character string; figure title drawn above the panels.
+#' @param test Logical; run the asymmetry test and summarise it in a table
+#'   under the panels (default \code{TRUE}).
 #' @param file One of: \code{character(0)} (default, auto-name); \code{NULL}
 #'   (display only); or an explicit file path.
 #' @param format Character; \code{"png"} (default) or \code{"pdf"}.
@@ -91,10 +318,8 @@ funnel_asymmetry <- function(x) {
 #' within a study are not independent; the asymmetry test accounts for that
 #' through the same three-level structure used for the pooled estimate.
 #'
-#' @return Invisibly, a list with \code{test} (the asymmetry test, or
-#'   \code{NULL}), \code{file} (the path written, or \code{NULL}) and
-#'   \code{skipped} (\code{TRUE} when the analysis had fewer than
-#'   \code{min.studies} clusters).
+#' @return Invisibly, a list with \code{test}, \code{table}, \code{file} and
+#'   \code{skipped}.
 #'
 #' @importFrom grDevices rgb png pdf dev.off
 #' @method funnel meta3l_result
@@ -104,7 +329,7 @@ funnel.meta3l_result <- function(x,
                                  xlim        = NULL,
                                  xlab        = NULL,
                                  ylab        = "Standard error",
-                                 title       = x$name,
+                                 title       = NULL,
                                  test        = TRUE,
                                  file        = character(0),
                                  format      = "png",
@@ -112,101 +337,65 @@ funnel.meta3l_result <- function(x,
                                  height      = NULL,
                                  ...) {
 
-  stopifnot(inherits(x, "meta3l_result"))
-
-  dat     <- x$data
-  k_clust <- length(unique(dat[[x$cluster]]))
+  k_clust <- length(unique(x$data[[x$cluster]]))
   if (k_clust < min.studies) {
     message(x$name, ": ", k_clust, " studies (< ", min.studies,
             "), funnel plot skipped.")
-    return(invisible(list(test = NULL, file = NULL, skipped = TRUE)))
+    return(invisible(list(test = NULL, table = NULL, file = NULL,
+                          skipped = TRUE)))
   }
 
-  yi  <- dat$yi
-  sei <- sqrt(dat$vi)
-  est <- as.numeric(x$model$b)
+  objs <- list(x)
+  names(objs) <- if (!is.null(x$name)) x$name else "Analysis"
+  if (is.null(title)) title <- paste0("Funnel plot: ", names(objs)[1L])
 
-  res <- if (isTRUE(test)) funnel_asymmetry(x) else NULL
+  funnel_draw(objs, title, xlab, ylab, xlim, test, file, format, width, height,
+              name_for_file = if (!is.null(x$name)) x$name else "meta3l_plot")
+}
 
-  se_max <- max(sei, na.rm = TRUE) * 1.05
-  if (is.null(xlim)) {
-    span <- max(abs(c(yi, est + 1.96 * se_max, est - 1.96 * se_max) - est),
-                na.rm = TRUE)
-    xlim <- c(est - span * 1.05, est + span * 1.05)
+#' @rdname funnel
+#' @param name Character string; base name used when \code{file} is
+#'   auto-generated.  List method only.
+#' @method funnel list
+#' @export
+funnel.list <- function(x,
+                        min.studies = 10L,
+                        xlim        = NULL,
+                        xlab        = NULL,
+                        ylab        = "Standard error",
+                        title       = NULL,
+                        test        = TRUE,
+                        name        = "funnel",
+                        file        = character(0),
+                        format      = "png",
+                        width       = NULL,
+                        height      = NULL,
+                        ...) {
+
+  ok <- vapply(x, inherits, logical(1L), what = "meta3l_result")
+  if (!all(ok)) {
+    stop("funnel() needs meta3l_result objects; offending position(s): ",
+         paste(which(!ok), collapse = ", "), ".", call. = FALSE)
   }
-  if (is.null(xlab)) {
-    xlab <- switch(x$measure,
-                   MD  = "Mean difference",
-                   SMD = "Standardised mean difference",
-                   RR  = "Log risk ratio",
-                   OR  = "Log odds ratio",
-                   "Effect size")
+
+  nm <- names(x)
+  if (is.null(nm)) {
+    nm <- vapply(x, function(o) if (!is.null(o$name)) o$name else "Analysis",
+                 character(1L))
+    names(x) <- nm
   }
 
-  out_file <- resolve_file(x, file, format, suffix = "funnel")
-  w <- if (!is.null(width))  width  else 2100L
-  h <- if (!is.null(height)) height else 2000L
-
-  if (!is.null(out_file)) {
-    if (identical(format, "pdf")) {
-      grDevices::pdf(out_file, width = w / 300, height = h / 300)
-    } else {
-      grDevices::png(out_file, width = w, height = h, res = 300L)
-    }
-  } else {
-    grDevices::pdf(nullfile(), width = w / 300, height = h / 300)
+  k <- vapply(x, function(o) length(unique(o$data[[o$cluster]])), numeric(1L))
+  keep <- k >= min.studies
+  if (any(!keep)) {
+    message("Fewer than ", min.studies, " studies, funnel plot skipped for: ",
+            paste(sprintf("%s (%d)", nm[!keep], k[!keep]), collapse = ", "), ".")
   }
-  on.exit(grDevices::dev.off(), add = TRUE)
-
-  grid::grid.newpage()
-  grid::pushViewport(grid::viewport(
-    x = grid::unit(0.5, "npc"), y = grid::unit(0.5, "npc"),
-    width  = grid::unit(1, "npc") - grid::unit(2.6, "cm"),
-    height = grid::unit(1, "npc") - grid::unit(4.0, "cm"),
-    xscale = xlim, yscale = c(se_max, 0)
-  ))
-
-  # funnel: pseudo 95% confidence region around the pooled estimate
-  grid::grid.polygon(
-    x  = grid::unit(c(est, est - 1.96 * se_max, est + 1.96 * se_max), "native"),
-    y  = grid::unit(c(0, se_max, se_max), "native"),
-    gp = grid::gpar(fill = rgb(0.94, 0.94, 0.94), col = "grey60", lty = "22")
-  )
-  grid::grid.segments(
-    x0 = grid::unit(est, "native"), x1 = grid::unit(est, "native"),
-    y0 = grid::unit(0, "native"),   y1 = grid::unit(se_max, "native"),
-    gp = grid::gpar(col = "grey30", lwd = 0.8)
-  )
-  keep <- is.finite(yi) & is.finite(sei)
-  grid::grid.points(
-    x = grid::unit(pmin(pmax(yi[keep], xlim[1]), xlim[2]), "native"),
-    y = grid::unit(sei[keep], "native"),
-    pch = 21,
-    gp  = grid::gpar(fill = rgb(0.35, 0.35, 0.35, 0.6), col = "grey15",
-                     cex = 0.55)
-  )
-
-  grid::grid.rect(gp = grid::gpar(fill = NA, col = "grey40", lwd = 0.7))
-  grid::grid.xaxis(gp = grid::gpar(cex = 0.65))
-  grid::grid.yaxis(gp = grid::gpar(cex = 0.65))
-  grid::grid.text(xlab, y = grid::unit(-2.6, "lines"),
-                  gp = grid::gpar(cex = 0.75))
-  grid::grid.text(ylab, x = grid::unit(-3.2, "lines"), rot = 90,
-                  gp = grid::gpar(cex = 0.75))
-  if (!is.null(title) && nzchar(title)) {
-    grid::grid.text(title, y = grid::unit(1, "npc") + grid::unit(1.6, "lines"),
-                    gp = grid::gpar(cex = 0.9, fontface = "bold"))
+  if (!any(keep)) {
+    return(invisible(list(test = NULL, table = NULL, file = NULL,
+                          skipped = TRUE)))
   }
-  if (!is.null(res)) {
-    p_txt <- if (res$pval < 0.001) "p < 0.001" else sprintf("p = %.3f", res$pval)
-    grid::grid.text(
-      sprintf("Test for funnel plot asymmetry: slope %.2f (95%% CI %.2f to %.2f), %s; %d studies",
-              res$slope, res$ci.lb, res$ci.ub, p_txt, res$k_clust),
-      x = grid::unit(0, "npc"), y = grid::unit(-4.4, "lines"), just = "left",
-      gp = grid::gpar(cex = 0.6, fontface = "italic")
-    )
-  }
-  grid::popViewport()
 
-  invisible(list(test = res, file = out_file, skipped = FALSE))
+  funnel_draw(x[keep], title, xlab, ylab, xlim, test, file, format,
+              width, height, name_for_file = name)
 }
