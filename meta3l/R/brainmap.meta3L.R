@@ -387,6 +387,10 @@ brainmap.meta3l_bind <- function(x,
                            "Effect")
   }
 
+  n_panels <- length(levels(dat_all$panel))
+  w <- if (!is.null(width))  width  else as.integer(1500 * n_panels + 900)
+  h <- if (!is.null(height)) height else 1800L
+
   key_txt <- NULL
   if (identical(labels, "number")) {
     shown <- key_tab[!is.na(key_tab$region), , drop = FALSE]
@@ -412,7 +416,9 @@ brainmap.meta3l_bind <- function(x,
   } else if (is.character(caption)) {
     cap <- caption
   }
-  wrap_at <- if (length(levels(dat_all$panel)) > 1L) 150L else 95L
+  # The key runs the full width of the figure: roughly 20 characters per inch
+  # at the caption size
+  wrap_at <- max(60L, as.integer(w / 300 * 20))
   if (!is.null(cap)) cap <- paste(strwrap(cap, width = wrap_at),
                                   collapse = "\n")
   if (!is.null(key_txt)) {
@@ -430,12 +436,23 @@ brainmap.meta3l_bind <- function(x,
                                   name = legend.title) +
     ggplot2::theme_void(base_size = 11) +
     ggplot2::theme(
-      legend.position = "right",
-      plot.title      = ggplot2::element_text(face = "bold", hjust = 0.5),
-      strip.text      = ggplot2::element_text(face = "bold", size = 9,
-                                              margin = ggplot2::margin(b = 4)),
-      plot.caption    = ggplot2::element_text(size = 7, colour = "grey30",
-                                              hjust = 0)
+      legend.position       = "right",
+      plot.title            = ggplot2::element_text(face = "bold", size = 16,
+                                                    hjust = 0.5,
+                                                    margin = ggplot2::margin(
+                                                      b = 8)),
+      plot.title.position   = "plot",
+      strip.text            = ggplot2::element_text(face = "bold", size = 10,
+                                                    margin = ggplot2::margin(
+                                                      t = 4, b = 6)),
+      panel.border          = ggplot2::element_rect(colour = "grey45",
+                                                    fill = NA, linewidth = 0.4),
+      panel.spacing         = grid::unit(8, "pt"),
+      plot.caption          = ggplot2::element_text(size = 7.5,
+                                                    colour = "grey30",
+                                                    hjust = 0),
+      plot.caption.position = "plot",
+      plot.margin           = ggplot2::margin(10, 10, 8, 10)
     ) +
     ggplot2::labs(title = title, caption = cap)
 
@@ -475,7 +492,6 @@ brainmap.meta3l_bind <- function(x,
     }
   }
 
-  n_panels <- length(levels(dat_all$panel))
   if (n_panels > 1L) {
     p <- p + ggplot2::facet_wrap(~ panel, nrow = 1L)
   }
@@ -484,8 +500,6 @@ brainmap.meta3l_bind <- function(x,
   out_file <- resolve_file(x, file, format, suffix = "brainmap")
   if (is.null(out_file)) return(p)
 
-  w <- if (!is.null(width))  width  else as.integer(1500 * n_panels + 900)
-  h <- if (!is.null(height)) height else 1800L
   if (identical(format, "pdf")) {
     grDevices::pdf(out_file, width = w / 300, height = h / 300)
   } else {
