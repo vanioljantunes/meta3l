@@ -112,6 +112,82 @@ bm_schematic <- function(slice, names) {
   do.call(rbind, out)
 }
 
+#' Lay the numbered key out in rows (internal)
+#'
+#' @param nums   Integer vector of marker numbers.
+#' @param labels Character vector of region names.
+#' @return A data frame with the row, x offset and width of each item, in mm.
+#' @keywords internal
+bm_key_layout <- function(nums, labels) {
+  disc  <- 3.4     # marker diameter, mm
+  gap   <- 1.4     # marker to text, mm
+  space <- 7.0     # between items, mm
+  avail <- as.numeric(grid::convertWidth(grid::unit(1, "npc"), "mm")) - 8
+
+  tw <- vapply(labels, function(l) {
+    as.numeric(grid::convertWidth(grid::stringWidth(l), "mm")) * 0.72
+  }, numeric(1L))
+  item_w <- disc + gap + tw
+
+  row <- integer(length(nums))
+  xo  <- numeric(length(nums))
+  cur_row <- 1L
+  cur_x   <- 0
+  for (i in seq_along(nums)) {
+    if (cur_x > 0 && cur_x + item_w[i] > avail) {
+      cur_row <- cur_row + 1L
+      cur_x   <- 0
+    }
+    row[i] <- cur_row
+    xo[i]  <- cur_x
+    cur_x  <- cur_x + item_w[i] + space
+  }
+  row_w <- vapply(split(seq_along(nums), row),
+                  function(ix) max(xo[ix] + item_w[ix]), numeric(1L))
+  data.frame(num = nums, label = labels, row = row, x = xo,
+             item_w = item_w, row_w = unname(row_w[as.character(row)]),
+             disc = disc, gap = gap, stringsAsFactors = FALSE)
+}
+
+#' Number of lines the numbered key needs (internal)
+#'
+#' @param labels Character vector of region names.
+#' @return Integer.
+#' @keywords internal
+bm_key_rows <- function(labels) {
+  max(bm_key_layout(seq_along(labels), labels)$row)
+}
+
+#' Draw the numbered key, centred in the current viewport (internal)
+#'
+#' Repeats the marker used on the map - a white disc carrying the region
+#' number - so the key reads as the same object rather than as plain text.
+#'
+#' @param nums   Integer vector of marker numbers.
+#' @param labels Character vector of region names.
+#' @return Invisibly \code{NULL}; called for the drawing.
+#' @keywords internal
+bm_draw_key <- function(nums, labels) {
+  lay    <- bm_key_layout(nums, labels)
+  n_rows <- max(lay$row)
+  for (i in seq_len(nrow(lay))) {
+    y  <- grid::unit(1 - (lay$row[i] - 0.5) / n_rows, "npc")
+    x0 <- grid::unit(0.5, "npc") - grid::unit(lay$row_w[i] / 2, "mm") +
+      grid::unit(lay$x[i], "mm")
+    grid::grid.circle(x = x0 + grid::unit(lay$disc[i] / 2, "mm"), y = y,
+                      r = grid::unit(lay$disc[i] / 2, "mm"),
+                      gp = grid::gpar(fill = "white", col = "grey15",
+                                      lwd = 0.7))
+    grid::grid.text(lay$num[i], x = x0 + grid::unit(lay$disc[i] / 2, "mm"),
+                    y = y, gp = grid::gpar(cex = 0.5, col = "grey10"))
+    grid::grid.text(lay$label[i],
+                    x = x0 + grid::unit(lay$disc[i] + lay$gap[i], "mm"),
+                    y = y, just = "left",
+                    gp = grid::gpar(cex = 0.72, col = "grey20"))
+  }
+  invisible(NULL)
+}
+
 # ---------------------------------------------------------------------------
 # Generic
 # ---------------------------------------------------------------------------
@@ -391,14 +467,11 @@ brainmap.meta3l_bind <- function(x,
   w <- if (!is.null(width))  width  else as.integer(1500 * n_panels + 900)
   h <- if (!is.null(height)) height else 1800L
 
-  key_txt <- NULL
+  key_tab_shown <- NULL
   if (identical(labels, "number")) {
-    shown <- key_tab[!is.na(key_tab$region), , drop = FALSE]
-    shown <- shown[order(shown$num), , drop = FALSE]
-    if (nrow(shown) > 0L) {
-      key_txt <- paste(sprintf("%d - %s", shown$num, shown$label),
-                       collapse = "   |   ")
-    }
+    key_tab_shown <- key_tab[!is.na(key_tab$region), , drop = FALSE]
+    key_tab_shown <- key_tab_shown[order(key_tab_shown$num), , drop = FALSE]
+    if (nrow(key_tab_shown) == 0L) key_tab_shown <- NULL
   }
 
   cap <- NULL
@@ -421,10 +494,6 @@ brainmap.meta3l_bind <- function(x,
   wrap_at <- max(60L, as.integer(w / 300 * 20))
   if (!is.null(cap)) cap <- paste(strwrap(cap, width = wrap_at),
                                   collapse = "\n")
-  if (!is.null(key_txt)) {
-    key_txt <- paste(strwrap(key_txt, width = wrap_at), collapse = "\n")
-    cap <- if (is.null(cap)) key_txt else paste(key_txt, cap, sep = "\n\n")
-  }
 
   # --- 7. Assemble the plot -------------------------------------------------
   p <- ggplot2::ggplot() +
@@ -441,7 +510,7 @@ brainmap.meta3l_bind <- function(x,
                                                     hjust = 0.5,
                                                     margin = ggplot2::margin(
                                                       b = 8)),
-      plot.title.position   = "plot",
+      plot.title.position   = "panel",
       strip.text            = ggplot2::element_text(face = "bold", size = 10,
                                                     margin = ggplot2::margin(
                                                       t = 4, b = 6)),
@@ -450,8 +519,8 @@ brainmap.meta3l_bind <- function(x,
       panel.spacing         = grid::unit(8, "pt"),
       plot.caption          = ggplot2::element_text(size = 7.5,
                                                     colour = "grey30",
-                                                    hjust = 0),
-      plot.caption.position = "plot",
+                                                    hjust = 0.5),
+      plot.caption.position = "panel",
       plot.margin           = ggplot2::margin(10, 10, 8, 10)
     ) +
     ggplot2::labs(title = title, caption = cap)
@@ -506,7 +575,27 @@ brainmap.meta3l_bind <- function(x,
     grDevices::png(out_file, width = w, height = h, res = 300L)
   }
   on.exit(grDevices::dev.off(), add = TRUE)
-  print(p)
+
+  if (is.null(key_tab_shown)) {
+    print(p)
+  } else {
+    # Reserve a strip under the figure for the key and centre it there
+    grid::grid.newpage()
+    n_key <- bm_key_rows(key_tab_shown$label)
+    grid::pushViewport(grid::viewport(
+      layout = grid::grid.layout(
+        nrow    = 2L,
+        heights = grid::unit.c(grid::unit(1, "null"),
+                               grid::unit(n_key * 5.5 + 2, "mm"))
+      )
+    ))
+    grid::pushViewport(grid::viewport(layout.pos.row = 1L))
+    print(p, newpage = FALSE)
+    grid::popViewport()
+    grid::pushViewport(grid::viewport(layout.pos.row = 2L))
+    bm_draw_key(key_tab_shown$num, key_tab_shown$label)
+    grid::popViewport(2L)
+  }
 
   invisible(out_file)
 }
