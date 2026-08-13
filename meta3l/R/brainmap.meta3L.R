@@ -134,6 +134,13 @@ brainmap <- function(x, ...) UseMethod("brainmap")
 #' @param view Character; atlas view to draw.  One of the views of
 #'   \code{ggseg::aseg()}; \code{"axial_5"} (default) is the slice that carries
 #'   caudate, putamen, pallidum, thalamus and VentralDC together.
+#' @param panels Character vector selecting what each panel shows: the keyword
+#'   \code{"Overall"} for the pooled estimate of every analysis, or the label of
+#'   a subgroup level present in the object (e.g. \code{"Neuro Wilson"}).
+#'   \code{NULL} (default) draws a single overall panel.  All panels share one
+#'   colour scale so they can be compared.
+#' @param panel.labs Character vector of panel titles, one per entry of
+#'   \code{panels}.  \code{NULL} (default) uses the panel keys themselves.
 #' @param palette Character; \pkg{MetBrewer} palette name.  Defaults to
 #'   \code{"Okeeffe1"}.
 #' @param direction \code{1} (default) or \code{-1}; flips the palette.
@@ -183,6 +190,8 @@ brainmap <- function(x, ...) UseMethod("brainmap")
 #' @export
 brainmap.meta3l_bind <- function(x,
                                  view         = "axial_5",
+                                 panels       = NULL,
+                                 panel.labs   = NULL,
                                  palette      = "Okeeffe1",
                                  direction    = 1,
                                  value        = c("estimate", "abs"),
@@ -215,18 +224,47 @@ brainmap.meta3l_bind <- function(x,
          paste0("\"", miss, "\"", collapse = ", "), ")).", call. = FALSE)
   }
 
-  # --- 1. One pooled estimate per analysis ---------------------------------
-  r  <- x$rows
-  ov <- r[r$type == "row" & r$kind == "overall", , drop = FALSE]
-  if (nrow(ov) == 0L) {
-    stop("No pooled rows in this object; metabind(..., overall = TRUE) is ",
-         "needed for a brain map.", call. = FALSE)
+  # --- 1. One pooled estimate per analysis, per panel ----------------------
+  r <- x$rows
+  if (is.null(panels)) panels <- "Overall"
+
+  panel_rows <- function(key) {
+    if (identical(key, "Overall")) {
+      r[r$type == "row" & r$kind == "overall", , drop = FALSE]
+    } else {
+      r[r$type == "row" & r$kind == "level" & r$label == key, , drop = FALSE]
+    }
   }
-  dat <- data.frame(
-    label = ov$block,
-    est   = if (identical(value, "abs")) abs(ov$est) else ov$est,
-    stringsAsFactors = FALSE
-  )
+
+  parts <- lapply(panels, function(key) {
+    rows <- panel_rows(key)
+    if (nrow(rows) == 0L) {
+      warning("No rows for panel '", key, "'; skipped.", call. = FALSE)
+      return(NULL)
+    }
+    data.frame(panel = key,
+               label = rows$block,
+               est   = if (identical(value, "abs")) abs(rows$est) else rows$est,
+               stringsAsFactors = FALSE)
+  })
+  parts <- parts[!vapply(parts, is.null, logical(1L))]
+  if (length(parts) == 0L) {
+    stop("None of the requested panels has any pooled row.", call. = FALSE)
+  }
+  dat_all <- do.call(rbind, parts)
+
+  panel_keys <- unique(dat_all$panel)
+  panel_show <- if (!is.null(panel.labs)) {
+    if (length(panel.labs) != length(panels)) {
+      stop("`panel.labs` must have one entry per panel (", length(panels),
+           "); got ", length(panel.labs), ".", call. = FALSE)
+    }
+    stats::setNames(panel.labs, panels)[panel_keys]
+  } else {
+    stats::setNames(panel_keys, panel_keys)
+  }
+  dat_all$panel <- factor(unname(panel_show[dat_all$panel]),
+                          levels = unname(panel_show))
 
   # --- 2. Atlas slice -------------------------------------------------------
   atlas <- as.data.frame(ggseg::aseg())
@@ -234,20 +272,21 @@ brainmap.meta3l_bind <- function(x,
     stop("View '", view, "' not in the atlas; available: ",
          paste(unique(atlas$view), collapse = ", "), ".", call. = FALSE)
   }
-  slice <- sf::st_as_sf(atlas[atlas$view == view, , drop = FALSE])
-  slice <- slice[!sf::st_is_empty(sf::st_geometry(slice)), , drop = FALSE]
+  slice0 <- sf::st_as_sf(atlas[atlas$view == view, , drop = FALSE])
+  slice0 <- slice0[!sf::st_is_empty(sf::st_geometry(slice0)), , drop = FALSE]
 
   # --- 3. Which labels are drawn as schematic midbrain nuclei --------------
+  all_labels <- unique(dat_all$label)
   if (is.null(schematic)) {
-    rn <- dat$label[grepl("red", dat$label, ignore.case = TRUE)]
-    sn <- dat$label[grepl("nigra", dat$label, ignore.case = TRUE)]
+    rn <- all_labels[grepl("red", all_labels, ignore.case = TRUE)]
+    sn <- all_labels[grepl("nigra", all_labels, ignore.case = TRUE)]
     schematic <- c(if (length(rn) > 0L) rn[1L] else NA_character_,
                    if (length(sn) > 0L) sn[1L] else NA_character_)
   }
-  is_schem <- dat$label %in% schematic[!is.na(schematic)]
+  schem_labels <- schematic[!is.na(schematic)]
 
   # --- 4. Match the remaining labels to atlas regions ----------------------
-  atlas_regions <- unique(as.character(slice$region))
+  atlas_regions <- unique(as.character(slice0$region))
   atlas_regions <- atlas_regions[!is.na(atlas_regions)]
   atlas_keys    <- bm_key(atlas_regions)
   resolve <- function(lbl) {
@@ -263,11 +302,18 @@ brainmap.meta3l_bind <- function(x,
     if (length(hit) > 0L) return(hit[1L])
     NA_character_
   }
-  dat$region <- vapply(dat$label, function(l) {
-    if (l %in% schematic) l else resolve(l)
-  }, character(1L), USE.NAMES = FALSE)
 
-  unmatched <- dat$label[is.na(dat$region)]
+  key_tab <- data.frame(
+    label  = all_labels,
+    num    = seq_along(all_labels),
+    schem  = all_labels %in% schem_labels,
+    stringsAsFactors = FALSE
+  )
+  key_tab$region <- vapply(seq_len(nrow(key_tab)), function(i) {
+    if (key_tab$schem[i]) key_tab$label[i] else resolve(key_tab$label[i])
+  }, character(1L))
+
+  unmatched <- key_tab$label[is.na(key_tab$region)]
   if (length(unmatched) > 0L) {
     warning("No atlas region for: ", paste(unmatched, collapse = ", "),
             ". Use region.map = c(\"", unmatched[1L],
@@ -275,31 +321,44 @@ brainmap.meta3l_bind <- function(x,
             call. = FALSE)
   }
 
-  # --- 5. Attach the values to the geometry --------------------------------
-  dat$num <- seq_len(nrow(dat))
-  keyed <- dat[!is_schem & !is.na(dat$region), , drop = FALSE]
-  slice$eff <- keyed$est[match(bm_key(slice$region), bm_key(keyed$region))]
-  slice$lab   <- keyed$label[match(bm_key(slice$region), bm_key(keyed$region))]
+  schem0 <- if (any(key_tab$schem)) bm_schematic(slice0, schematic) else NULL
 
-  schem_sf <- NULL
-  schem_in <- dat[is_schem & !is.na(dat$est), , drop = FALSE]
-  if (nrow(schem_in) > 0L) {
-    schem_sf <- bm_schematic(slice, schematic)
-    if (!is.null(schem_sf)) {
-      schem_sf$eff <- schem_in$est[match(schem_sf$region, schem_in$label)]
-      schem_sf$lab   <- schem_sf$region
-      schem_sf <- schem_sf[!is.na(schem_sf$eff), , drop = FALSE]
+  # --- 5. One copy of the geometry per panel, carrying that panel's values --
+  atlas_parts <- list()
+  schem_parts <- list()
+  for (pl in levels(dat_all$panel)) {
+    d <- dat_all[dat_all$panel == pl, , drop = FALSE]
+    d <- merge(d, key_tab, by = "label", all.x = TRUE)
+
+    keyed <- d[!d$schem & !is.na(d$region), , drop = FALSE]
+    sl <- slice0
+    idx <- match(bm_key(sl$region), bm_key(keyed$region))
+    sl$eff   <- keyed$est[idx]
+    sl$lab   <- keyed$label[idx]
+    sl$num   <- keyed$num[idx]
+    sl$panel <- pl
+    atlas_parts[[length(atlas_parts) + 1L]] <- sl
+
+    if (!is.null(schem0)) {
+      sc  <- schem0
+      dsc <- d[d$schem & !is.na(d$est), , drop = FALSE]
+      j   <- match(sc$region, dsc$label)
+      sc$eff   <- dsc$est[j]
+      sc$lab   <- sc$region
+      sc$num   <- dsc$num[j]
+      sc$panel <- pl
+      sc <- sc[!is.na(sc$eff), , drop = FALSE]
+      if (nrow(sc) > 0L) schem_parts[[length(schem_parts) + 1L]] <- sc
     }
   }
-
-  # --- 5b. Numbering, in the order the analyses were bound -----------------
-  slice$num <- keyed$num[match(bm_key(slice$region), bm_key(keyed$region))]
-  if (!is.null(schem_sf) && nrow(schem_sf) > 0L) {
-    schem_sf$num <- dat$num[match(schem_sf$region, dat$label)]
+  slice <- do.call(rbind, atlas_parts)
+  slice$panel <- factor(slice$panel, levels = levels(dat_all$panel))
+  schem_sf <- if (length(schem_parts) > 0L) do.call(rbind, schem_parts) else NULL
+  if (!is.null(schem_sf)) {
+    schem_sf$panel <- factor(schem_sf$panel, levels = levels(dat_all$panel))
   }
 
   # --- 6. Colour scale ------------------------------------------------------
-  # MetBrewer spells some palettes unusually ("OKeeffe1"), so match loosely
   pal_names <- names(MetBrewer::MetPalettes)
   pal_hit   <- pal_names[tolower(pal_names) == tolower(palette)]
   if (length(pal_hit) == 0L) {
@@ -316,6 +375,7 @@ brainmap.meta3l_bind <- function(x,
   if (direction < 0) cols <- rev(cols)
   vals <- c(slice$eff, if (!is.null(schem_sf)) schem_sf$eff)
   vals <- vals[is.finite(vals)]
+  # One scale across every panel, otherwise the panels cannot be compared
   lims <- if (!is.null(limits)) limits else range(vals, na.rm = TRUE)
 
   if (is.null(legend.title)) {
@@ -329,7 +389,8 @@ brainmap.meta3l_bind <- function(x,
 
   key_txt <- NULL
   if (identical(labels, "number")) {
-    shown <- dat[!is.na(dat$region) & !is.na(dat$est), , drop = FALSE]
+    shown <- key_tab[!is.na(key_tab$region), , drop = FALSE]
+    shown <- shown[order(shown$num), , drop = FALSE]
     if (nrow(shown) > 0L) {
       key_txt <- paste(sprintf("%d - %s", shown$num, shown$label),
                        collapse = "   |   ")
@@ -351,14 +412,12 @@ brainmap.meta3l_bind <- function(x,
   } else if (is.character(caption)) {
     cap <- caption
   }
-  if (!is.null(cap)) cap <- paste(strwrap(cap, width = 95L), collapse = "
-")
+  wrap_at <- if (length(levels(dat_all$panel)) > 1L) 150L else 95L
+  if (!is.null(cap)) cap <- paste(strwrap(cap, width = wrap_at),
+                                  collapse = "\n")
   if (!is.null(key_txt)) {
-    key_txt <- paste(strwrap(key_txt, width = 95L), collapse = "
-")
-    cap <- if (is.null(cap)) key_txt else paste(key_txt, cap, sep = "
-
-")
+    key_txt <- paste(strwrap(key_txt, width = wrap_at), collapse = "\n")
+    cap <- if (is.null(cap)) key_txt else paste(key_txt, cap, sep = "\n\n")
   }
 
   # --- 7. Assemble the plot -------------------------------------------------
@@ -373,6 +432,8 @@ brainmap.meta3l_bind <- function(x,
     ggplot2::theme(
       legend.position = "right",
       plot.title      = ggplot2::element_text(face = "bold", hjust = 0.5),
+      strip.text      = ggplot2::element_text(face = "bold", size = 9,
+                                              margin = ggplot2::margin(b = 4)),
       plot.caption    = ggplot2::element_text(size = 7, colour = "grey30",
                                               hjust = 0)
     ) +
@@ -386,16 +447,17 @@ brainmap.meta3l_bind <- function(x,
   }
 
   if (!identical(labels, "none")) {
-    mark <- slice[!is.na(slice$eff), c("lab", "num", "geometry")]
+    mark <- slice[!is.na(slice$eff), c("lab", "num", "panel", "geometry")]
     if (!is.null(schem_sf) && nrow(schem_sf) > 0L) {
-      mark <- rbind(mark, schem_sf[, c("lab", "num", "geometry")])
+      mark <- rbind(mark, schem_sf[, c("lab", "num", "panel", "geometry")])
     }
     if (nrow(mark) > 0L) {
       if (identical(labels, "name")) {
-        # One name per region - the largest polygon of the pair - so the two
-        # hemispheres do not print the same name twice on top of each other
+        # One name per region and panel - the larger polygon of the pair - so
+        # the two hemispheres do not print the same name twice
         areas <- as.numeric(sf::st_area(mark))
-        keep  <- vapply(split(seq_along(areas), mark$lab),
+        keep  <- vapply(split(seq_along(areas),
+                              paste(mark$panel, mark$lab)),
                         function(ix) ix[which.max(areas[ix])], integer(1L))
         mark  <- mark[sort(keep), , drop = FALSE]
         p <- p + ggplot2::geom_sf_text(data = mark,
@@ -403,7 +465,7 @@ brainmap.meta3l_bind <- function(x,
                                        size = 2.4, colour = "grey15")
       } else {
         pts <- sf::st_point_on_surface(sf::st_geometry(mark))
-        pts <- sf::st_sf(num = mark$num, geometry = pts)
+        pts <- sf::st_sf(num = mark$num, panel = mark$panel, geometry = pts)
         p <- p +
           ggplot2::geom_sf(data = pts, shape = 21, fill = "white",
                            colour = "grey15", size = 3.6, stroke = 0.4) +
@@ -413,11 +475,16 @@ brainmap.meta3l_bind <- function(x,
     }
   }
 
+  n_panels <- length(levels(dat_all$panel))
+  if (n_panels > 1L) {
+    p <- p + ggplot2::facet_wrap(~ panel, nrow = 1L)
+  }
+
   # --- 8. Draw -------------------------------------------------------------
   out_file <- resolve_file(x, file, format, suffix = "brainmap")
   if (is.null(out_file)) return(p)
 
-  w <- if (!is.null(width))  width  else 2400L
+  w <- if (!is.null(width))  width  else as.integer(1500 * n_panels + 900)
   h <- if (!is.null(height)) height else 1800L
   if (identical(format, "pdf")) {
     grDevices::pdf(out_file, width = w / 300, height = h / 300)
