@@ -271,13 +271,14 @@ loo_cluster.meta3l_result <- function(x,
   # Column structure (dynamic for ilab)
   has_pval   <- "pval" %in% names(tbl)
   label_col  <- 1L
-  ilab_cols  <- if (n_ilab > 0L) seq(2L, n_ilab + 1L) else integer(0)
-  gap1_col   <- n_ilab + 2L
-  ci_col     <- n_ilab + 3L
-  gap2_col   <- n_ilab + 4L
-  i2b_col    <- n_ilab + 5L
-  i2w_col    <- n_ilab + 6L
-  pval_col   <- if (has_pval) n_ilab + 7L else NA_integer_
+  est_col    <- 2L
+  ilab_cols  <- if (n_ilab > 0L) seq(3L, n_ilab + 2L) else integer(0)
+  gap1_col   <- n_ilab + 3L
+  ci_col     <- n_ilab + 4L
+  gap2_col   <- n_ilab + 5L
+  i2b_col    <- n_ilab + 6L
+  i2w_col    <- n_ilab + 7L
+  pval_col   <- if (has_pval) n_ilab + 8L else NA_integer_
   last_col   <- if (has_pval) pval_col else i2w_col
   n_cols     <- last_col
 
@@ -285,14 +286,24 @@ loo_cluster.meta3l_result <- function(x,
   label_w     <- max(2.5, ilab_col_cm(label_chars))
   gap_w       <- 0.35
 
+  # Estimate and 95% CI, printed next to the omitted study
+  est_lab  <- paste0(measure, " [95% CI]")
+  est_txt  <- ifelse(
+    is.na(tbl$estimate) | is.na(tbl$ci.lb) | is.na(tbl$ci.ub), "",
+    sprintf("%.2f [%.2f; %.2f]", tbl$estimate, tbl$ci.lb, tbl$ci.ub)
+  )
+  est_w <- ilab_col_cm(max(nchar(c(est_txt, est_lab)), na.rm = TRUE))
+
   # Cap CI panel at 40% of total width: ci / (ci + other) <= 0.4
   # Floor of 5 cm prevents cramping when few columns are present
   pval_w <- if (has_pval) 1.5 else 0
-  other_cm <- label_w + sum(ilab_col_widths) + 2 * gap_w + 2.2 + 2.2 + pval_w
+  other_cm <- label_w + est_w + sum(ilab_col_widths) + 2 * gap_w + 2.2 + 2.2 +
+    pval_w
   ci_cm    <- max(min(7, other_cm * 2 / 3), 5)
 
   col_units_list <- vector("list", n_cols)
   col_units_list[[label_col]] <- grid::unit(label_w, "cm")
+  col_units_list[[est_col]]   <- grid::unit(est_w, "cm")
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) col_units_list[[ilab_cols[j]]] <- grid::unit(ilab_col_widths[j], "cm")
   }
@@ -363,6 +374,11 @@ loo_cluster.meta3l_result <- function(x,
   grid::grid.text("Omitted", x = grid::unit(0.5, "npc"), just = "centre", gp = bold_gp)
   grid::popViewport()
 
+  push_cell(header_row, est_col)
+  grid::grid.text(est_lab, x = grid::unit(0.5, "npc"), just = "centre",
+                  gp = bold_gp)
+  grid::popViewport()
+
   if (n_ilab > 0L) {
     for (j in seq_len(n_ilab)) {
       push_cell(header_row, ilab_cols[j])
@@ -419,6 +435,12 @@ loo_cluster.meta3l_result <- function(x,
     grid::grid.text(as.character(row_d$omitted),
                     x = grid::unit(0.5, "npc"), just = "centre",
                     gp = if (i == n_rows) grid::gpar(cex = 0.75, fontface = "bold") else norm_gp)
+    grid::popViewport()
+
+    # Estimate and 95% CI
+    push_cell(row_i, est_col)
+    grid::grid.text(est_txt[i], x = grid::unit(0.5, "npc"), just = "centre",
+                    gp = if (i == n_rows) bold_gp else norm_gp)
     grid::popViewport()
 
     # ilab columns

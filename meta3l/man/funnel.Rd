@@ -2,17 +2,39 @@
 % Please edit documentation in R/funnel.meta3L.R
 \name{funnel}
 \alias{funnel}
+\alias{funnel.list}
 \title{Funnel plot for three-level meta-analysis results}
 \usage{
 funnel(x, ...)
+
+\method{funnel}{list}(
+  x,
+  min.studies = 10L,
+  xlim = NULL,
+  xlab = NULL,
+  ylab = "Standard error",
+  title = NULL,
+  test = TRUE,
+  name = "funnel",
+  file = character(0),
+  format = "png",
+  width = NULL,
+  height = NULL,
+  ...
+)
 }
 \arguments{
-\item{x}{A \code{meta3l_result} object returned by \code{\link{meta3L}}.}
+\item{x}{A \code{meta3l_result} object returned by \code{\link{meta3L}}, or
+a (optionally named) list of them, in which case one panel is drawn per
+analysis and the asymmetry tests are summarised in a single table.}
 
 \item{...}{Further arguments passed to the method.}
+
+\item{name}{Character string; base name used when \code{file} is
+auto-generated.  List method only.}
 }
 \value{
-Invisibly, a list with the asymmetry test and the file path.
+Invisibly, a list with the asymmetry test(s) and the file path.
 }
 \description{
 Funnel plot for three-level meta-analysis results
