@@ -10,3 +10,6 @@ test/
 # tutorial pages and README figures are published
 !meta3l/tutorial/*.html
 !meta3l/man/figures/*.png
+
+# local planning notes, not published
+.planning/
