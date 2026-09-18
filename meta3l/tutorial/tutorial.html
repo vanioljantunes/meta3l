@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>meta3l tutorial</title>
+<style>
+  :root {
+    --navy: #1F2A44;
+    --red: #C0392B;
+    --blue: #4E7CA8;
+    --grey: #8A939B;
+    --band: #EDEFF2;
+    --line: #C5C9CE;
+    --paper: #FFFFFF;
+    --page: #F4F1EC;
+    --muted: #5B6475;
+    --code-bg: #F7F8FA;
+    --serif: Georgia, "Times New Roman", Times, serif;
+    --sans: "Segoe UI", Arial, Helvetica, sans-serif;
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--navy); font-family: var(--sans); }
+  .sheet { width: 1200px; margin: 20px auto; background: var(--paper);
+           border: 1px solid var(--line); }
+
+  header { padding: 38px 48px 30px; text-align: center; border-bottom: 1px solid var(--line); }
+  header h1 { font-family: var(--serif); font-size: 40px; margin: 0 0 6px; letter-spacing: 0.2px; }
+  header p { margin: 0; font-family: var(--serif); font-size: 19px; color: var(--muted); }
+  .flow { display: flex; justify-content: center; align-items: center; gap: 14px;
+          margin-top: 22px; font-family: var(--serif); font-size: 16px; }
+  .flow .pill { border: 1px solid var(--line); background: var(--band); padding: 5px 14px;
+                border-radius: 999px; }
+  .flow .arrow { color: var(--grey); font-size: 18px; }
+
+  section.step { padding: 30px 48px 34px; border-bottom: 1px solid var(--line); }
+  section.step:last-of-type { border-bottom: none; }
+  .step-head { display: flex; align-items: center; gap: 16px; margin-bottom: 18px;
+               background: var(--band); margin-left: -48px; margin-right: -48px;
+               padding: 12px 48px; }
+  .num { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--navy);
+         background: #fff; display: flex; align-items: center; justify-content: center;
+         font-weight: 700; font-size: 20px; font-family: var(--sans); flex: none; }
+  .step-head h2 { font-family: var(--serif); font-size: 26px; margin: 0; }
+  .step-head span { font-family: var(--serif); color: var(--muted); font-size: 16px; margin-left: 4px; }
+
+  .grid { display: grid; gap: 26px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 10px; }
+  h3 small { font-family: var(--sans); font-weight: 400; font-size: 13.5px; color: var(--muted); }
+  h3 small code { font-family: var(--mono); color: var(--navy); }
+  p.note { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 8px 0 0; }
+  p.note code { font-family: var(--mono); font-size: 13px; color: var(--navy); }
+
+  pre.code { margin: 0; background: var(--code-bg); border: 1px solid var(--line);
+             border-left: 4px solid var(--navy); padding: 14px 16px; font-family: var(--mono);
+             font-size: 14px; line-height: 1.55; color: var(--navy); white-space: pre; }
+  .c { color: #7A8391; font-style: italic; }
+  .f { color: var(--navy); font-weight: 700; }
+  .s { color: var(--red); }
+  .a { color: var(--blue); }
+  .k { color: #6B4FA0; }
+
+  .pkgs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pkg { border: 1px solid var(--line); padding: 12px 14px; }
+  .pkg b { font-family: var(--mono); font-size: 15px; display: block; margin-bottom: 4px; }
+  .pkg span { font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+  .pkg span code { font-family: var(--mono); color: var(--navy); }
+  .pkg.main { border-color: var(--red); box-shadow: inset 4px 0 0 var(--red); }
+
+  table.tpl { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  table.tpl th { background: var(--navy); color: #fff; font-family: var(--mono); font-weight: 600;
+                 padding: 7px 10px; text-align: left; font-size: 14px; }
+  table.tpl th.e { background: #3B4A6B; }
+  table.tpl td { padding: 6px 10px; border-bottom: 1px solid var(--band); }
+  table.tpl td.n { text-align: right; font-family: var(--mono); }
+  .cols { margin-top: 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
+          font-size: 13.5px; }
+  .cols > code { font-family: var(--mono); color: var(--navy); font-weight: 700; }
+  .cols > span { color: var(--muted); }
+
+  .console { margin-top: 12px; background: #fff; border: 1px dashed var(--grey);
+             padding: 10px 14px; font-family: var(--mono); font-size: 13.5px; line-height: 1.5;
+             white-space: pre; }
+  .console .t { color: var(--muted); }
+
+  .plotcard { border: 1px solid var(--line); padding: 8px; background: #fff; margin: 0; }
+  .plotcard img { width: 100%; display: block; }
+  .plotcard figcaption { font-family: var(--serif); font-size: 13.5px; color: var(--muted);
+                         text-align: center; padding-top: 6px; }
+  .wide { margin-top: 24px; }
+
+  .args { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 26px; }
+  .card { border: 1px solid var(--line); }
+  .card .hd { background: var(--band); padding: 9px 12px; }
+  .card .hd b { font-family: var(--serif); font-size: 17px; display: block; }
+  .card .hd code { font-family: var(--mono); font-size: 13px; color: var(--blue); }
+  .card .bd { padding: 12px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+  .card .bd code { font-family: var(--mono); color: var(--navy); font-size: 12.5px; }
+
+  .pitfall { margin-top: 18px; display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .pit { border: 1px solid var(--line); border-left: 4px solid var(--red); padding: 10px 14px;
+         font-size: 14px; line-height: 1.45; }
+  .pit b { font-family: var(--serif); font-size: 15.5px; display: block; margin-bottom: 3px; }
+  .pit code { font-family: var(--mono); font-size: 13px; color: var(--navy); }
+  footer { text-align: center; padding: 14px; font-family: var(--serif); font-size: 13.5px;
+           color: var(--muted); border-top: 1px solid var(--line); }
+  footer code { font-family: var(--mono); font-size: 12.5px; color: var(--navy); }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <h1>meta3l tutorial</h1>
+    <p>From an Excel sheet to three-level meta-analysis plots in four steps</p>
+    <div class="flow">
+      <span class="pill">Excel sheet</span><span class="arrow">&rarr;</span>
+      <span class="pill">meta3L()</span><span class="arrow">&rarr;</span>
+      <span class="pill">forest3L() &middot; moderator3L() &middot; loo_cluster3L()</span><span class="arrow">&rarr;</span>
+      <span class="pill">metabind3L()</span>
+    </div>
+  </header>
+
+  <!-- STEP 1 -->
+  <section class="step">
+    <div class="step-head"><div class="num">1</div><h2>Prepare packages</h2><span>install once, load every session</span></div>
+    <div class="grid g2">
+      <pre class="code"><span class="c"># install once</span>
+<span class="f">install.packages</span>(<span class="s">"remotes"</span>)
+remotes::<span class="f">install_github</span>(<span class="s">"vanioljantunes/meta3l"</span>,
+                        <span class="a">subdir</span> = <span class="s">"meta3l"</span>)
+
+<span class="c"># load every session</span>
+<span class="f">library</span>(meta3l)</pre>
+      <div>
+        <div class="pkgs">
+          <div class="pkg main"><b>meta3l</b><span>fits the three-level model and draws the plots: <code>meta3L()</code> and the <code>*3L()</code> family</span></div>
+          <div class="pkg"><b>metafor</b><span>model engine (<code>escalc</code>, <code>vcalc</code>, <code>rma.mv</code>), installed with meta3l</span></div>
+          <div class="pkg"><b>clubSandwich</b><span>cluster-robust CR2 confidence intervals</span></div>
+          <div class="pkg"><b>readxl</b><span>reads every sheet of the Excel file</span></div>
+        </div>
+        <p class="note">Every user function ends in <code>3L</code>, so loading
+          <code>metafor</code> or <code>meta</code> before or after meta3l never hides one of
+          them. Updating meta3l in an open session? Run <code>unloadNamespace("meta3l")</code>
+          before <code>install_github()</code>, then <code>library(meta3l)</code> again.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="step">
+    <div class="step-head"><div class="num">2</div><h2>Load the data</h2><span>one row per effect size, one sheet per outcome</span></div>
+    <div class="grid g2">
+      <div>
+        <h3>Two groups, counts <small>RR / OR: women vs men awarded</small></h3>
+        <table class="tpl">
+          <thead><tr><th>studlab</th><th>type</th><th>event.e</th><th>n.e</th><th class="e">event.c</th><th class="e">n.c</th></tr></thead>
+          <tbody>
+            <tr><td>Ackers (2000)</td><td>Fellowship</td><td class="n">139</td><td class="n">711</td><td class="n">274</td><td class="n">1029</td></tr>
+            <tr><td>Ackers (2000)</td><td>Fellowship</td><td class="n">45</td><td class="n">258</td><td class="n">166</td><td class="n">908</td></tr>
+          </tbody>
+        </table>
+        <h3 style="margin-top:20px">Two groups, means <small>SMD / MD</small></h3>
+        <table class="tpl">
+          <thead><tr><th>studlab</th><th>side</th><th>mean.e</th><th>sd.e</th><th>n.e</th><th class="e">mean.c</th><th class="e">sd.c</th><th class="e">n.c</th></tr></thead>
+          <tbody>
+            <tr><td>Deng, 2024</td><td>right</td><td class="n">77.0</td><td class="n">49.8</td><td class="n">20</td><td class="n">24.7</td><td class="n">7.1</td><td class="n">20</td></tr>
+            <tr><td>Deng, 2024</td><td>left</td><td class="n">82.2</td><td class="n">62.1</td><td class="n">20</td><td class="n">24.4</td><td class="n">7.8</td><td class="n">20</td></tr>
+          </tbody>
+        </table>
+        <div class="cols">
+          <code>studlab</code><span>the study (cluster): rows with the same label are one study</span>
+          <code>.e / .c</code><span>experimental and control group; one group: <code>event</code>, <code>n</code></span>
+          <code>side, type</code><span>any extra column can be a subgroup or a moderator</span>
+        </div>
+      </div>
+      <div>
+        <h3>Read the workbook, pick the sheet</h3>
+        <pre class="code"><span class="c"># every sheet into a named list; file picker if no path</span>
+ma &lt;- <span class="f">read_multisheet_excel</span>(<span class="s">"DATA EXTRACTION.xlsx"</span>)
+<span class="f">names</span>(ma)
+
+<span class="c"># author + year columns become studlab automatically;</span>
+<span class="c"># plots are saved next to the workbook</span>
+d &lt;- ma[[<span class="s">"Outcome_awards"</span>]]</pre>
+        <div class="console"><span class="t">&gt; names(ma)</span>
+[1] "Table 1"        "Outcome_awards"</div>
+        <p class="note">No file yet? The example below uses <code>dat.bornmann2007</code> from the
+          <code>metadat</code> package (installed with metafor): 66 odds ratios of women vs men
+          being awarded a grant or fellowship, nested in 21 studies.</p>
+        <div class="pitfall">
+          <div class="pit"><b>One row per effect size</b>
+            A study with left and right measurements, or several time points, has several rows
+            with the same <code>studlab</code>. meta3l models that dependence; do not average
+            the rows yourself.</div>
+          <div class="pit"><b>Arm data, not effect sizes</b>
+            meta3l computes the effect sizes with <code>escalc</code>, so each row needs means,
+            SDs and n (or events and n). Clean the data in the sheet, not in code.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="step">
+    <div class="step-head"><div class="num">3</div><h2>One outcome: fit and plot</h2><span>meta3L &rarr; forest, leave-one-out, funnel</span></div>
+    <div class="grid g2">
+      <div>
+        <pre class="code"><span class="c"># a. three-level model: effects nested in studies</span>
+r &lt;- <span class="f">meta3L</span>(d, <span class="a">slab</span> = <span class="s">"studlab"</span>, <span class="a">measure</span> = <span class="s">"OR"</span>,
+            <span class="a">name</span> = <span class="s">"fellowships"</span>,
+            <span class="a">group.e</span> = <span class="s">"Women"</span>, <span class="a">group.c</span> = <span class="s">"Men"</span>)
+r      <span class="c"># OR, 95% CI (CR2), I2 between / within</span>
+
+<span class="c"># b. forest plot, saved as fellowships_forest.png</span>
+<span class="f">forest3L</span>(r)
+<span class="f">forest3L</span>(r, <span class="a">file</span> = <span class="k">NULL</span>)   <span class="c"># on screen instead</span>
+
+<span class="c"># c. sensitivity: drop one study / one effect</span>
+<span class="f">loo_cluster3L</span>(r)
+<span class="f">loo_effect3L</span>(r)
+
+<span class="c"># d. funnel + asymmetry test (10+ studies)</span>
+<span class="f">funnel3L</span>(r)</pre>
+        <div class="console"><span class="t">Three-Level Meta-Analysis (meta3l)</span>
+Measure  : OR
+Pooled   : 0.8331  [95% CI: 0.7568, 0.9171]
+k        : 11 studies,  n = 26 effect sizes
+rho      : 0.50 (assumed within-cluster correlation)
+I2 total :  75.1%   between 0.0%   within 75.1%</div>
+      </div>
+      <figure class="plotcard">
+        <img src="../man/figures/tutorial-forest.png" alt="Forest plot drawn by forest3L()">
+        <figcaption>Result: one row per effect size, grouped by study; the diamond is the
+          three-level pooled OR with its CR2 interval, and the footer splits I&sup2; into
+          between-study and within-study parts</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="step">
+    <div class="step-head"><div class="num">4</div><h2>Subgroups and several outcomes</h2><span>moderator3L, bubble3L, metabind3L &rarr; summary forest</span></div>
+    <div class="grid g2">
+      <pre class="code"><span class="c"># all 66 awards, fellowships and grants</span>
+r_all &lt;- <span class="f">meta3L</span>(d_all, <span class="a">slab</span> = <span class="s">"studlab"</span>, <span class="a">measure</span> = <span class="s">"OR"</span>)
+
+<span class="c"># subgroup: categorical moderator, Wald + LR test</span>
+<span class="f">moderator3L</span>(r_all, <span class="a">subgroup</span> = <span class="s">"type"</span>)
+<span class="f">forest_subgroup3L</span>(r_all, <span class="a">subgroup</span> = <span class="s">"type"</span>)
+
+<span class="c"># meta-regression: continuous moderator</span>
+<span class="f">bubble3L</span>(r_all, <span class="a">mod</span> = <span class="s">"year"</span>)
+
+<span class="c"># one summary forest, broken down by type</span>
+mb &lt;- <span class="f">metabind3L</span>(<span class="s">`All awards`</span> = r_all, <span class="a">subgroup</span> = <span class="s">"type"</span>)
+<span class="f">forest3L</span>(mb, <span class="a">analysis.lab</span> = <span class="s">"Analysis"</span>)
+
+<span class="c"># several outcomes (regions, scales) in one figure</span>
+<span class="f">forest3L</span>(<span class="f">metabind3L</span>(Putamen = r_put, Caudate = r_cau))</pre>
+      <div class="pitfall" style="margin-top:0">
+        <div class="pit"><b>Subgroup test</b>
+          <code>moderator3L()</code> fits one model with the subgroup as a moderator and shared
+          variance components. In the summary forest, the p next to the analysis name is the
+          test for subgroup differences.</div>
+        <div class="pit"><b>Patients counted once</b>
+          The summary forest adds up patients per study without double counting left and right
+          rows. If a study reports disjoint groups (neurological and hepatic, say), pass
+          <code>patients.by = "intervention"</code> so both groups are counted.</div>
+      </div>
+    </div>
+    <figure class="plotcard wide">
+      <img src="../man/figures/tutorial-metabind.png" alt="Summary forest drawn by forest3L() on a metabind3L() object">
+      <figcaption>Result: fellowships favour men (OR 0.83), grants do not (OR 1.01), and the two
+        funding types differ (p &lt; 0.001). Studies, effects, group sizes and I&sup2; per level
+        are listed on every row</figcaption>
+    </figure>
+
+    <div class="args">
+      <div class="card">
+        <div class="hd"><b>Within-study correlation</b><code>rho = 0.5</code></div>
+        <div class="bd">Assumed correlation between effect sizes of the same study, used by
+          <code>vcalc()</code>. <code>rho = 0</code> gives the plain three-level model most papers
+          report. Say which one you used in the Methods.</div>
+      </div>
+      <div class="card">
+        <div class="hd"><b>Cluster</b><code>cluster = "studlab"</code></div>
+        <div class="bd">The column that defines level 3. Use a cohort or trial ID instead of the
+          study label when several papers report the same patients.</div>
+      </div>
+      <div class="card">
+        <div class="hd"><b>Measure</b><code>measure = "OR"</code></div>
+        <div class="bd"><code>PLO</code>, <code>PAS</code> (proportions), <code>SMD</code>,
+          <code>MD</code>, <code>RR</code>, <code>OR</code>. Results come back on the natural
+          scale: proportions as 0 to 1, ratios as ratios.</div>
+      </div>
+      <div class="card">
+        <div class="hd"><b>Saving plots</b><code>file, format</code></div>
+        <div class="bd">Default: a PNG named after <code>name</code> in
+          <code>getOption("meta3l.mwd")</code>. <code>file = NULL</code> draws on screen;
+          <code>format = "pdf"</code> for vector output.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>meta3l &middot; github.com/vanioljantunes/meta3l &middot; help pages: <code>?meta3L</code>, <code>?forest3L</code>, <code>?metabind3L</code></footer>
+</div>
+</body>
+</html>

@@ -6,3 +6,7 @@ test/
 .Rhistory
 .RData
 .Rproj.user
+
+# tutorial pages and README figures are published
+!meta3l/tutorial/*.html
+!meta3l/man/figures/*.png

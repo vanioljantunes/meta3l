@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>meta3l validation</title>
+<style>
+  :root {
+    --navy: #1F2A44;
+    --red: #C0392B;
+    --blue: #4E7CA8;
+    --grey: #8A939B;
+    --band: #EDEFF2;
+    --line: #C5C9CE;
+    --paper: #FFFFFF;
+    --page: #F4F1EC;
+    --muted: #5B6475;
+    --code-bg: #F7F8FA;
+    --green: #2E7D4F;
+    --amber: #B7791F;
+    --coch: #7A4E2D;
+    --serif: Georgia, "Times New Roman", Times, serif;
+    --sans: "Segoe UI", Arial, Helvetica, sans-serif;
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--navy); font-family: var(--sans); }
+  .sheet { width: 1200px; margin: 20px auto; background: var(--paper); border: 1px solid var(--line); }
+
+  header { padding: 38px 48px 30px; text-align: center; border-bottom: 1px solid var(--line); }
+  header h1 { font-family: var(--serif); font-size: 40px; margin: 0 0 6px; }
+  header p { margin: 0; font-family: var(--serif); font-size: 19px; color: var(--muted); }
+  .flow { display: flex; justify-content: center; align-items: center; gap: 14px;
+          margin-top: 22px; font-family: var(--serif); font-size: 16px; }
+  .flow .pill { border: 1px solid var(--line); background: var(--band); padding: 5px 14px; border-radius: 999px; }
+  .flow .arrow { color: var(--grey); font-size: 18px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 24px 48px 26px;
+           border-bottom: 1px solid var(--line); }
+  .stat { border: 1px solid var(--line); padding: 14px 16px; }
+  .stat b { display: block; font-family: var(--serif); font-size: 30px; line-height: 1.1; }
+  .stat span { font-size: 13.5px; color: var(--muted); line-height: 1.4; display: block; margin-top: 4px; }
+  .stat span code { font-family: var(--mono); font-size: 12.5px; color: var(--navy); }
+  .stat.ok { box-shadow: inset 4px 0 0 var(--green); }
+  .stat.ok b { color: var(--green); }
+  .stat.note { box-shadow: inset 4px 0 0 var(--amber); }
+  .stat.note b { color: var(--amber); font-size: 22px; }
+
+  section.step { padding: 30px 48px 34px; border-bottom: 1px solid var(--line); }
+  section.step:last-of-type { border-bottom: none; }
+  .step-head { display: flex; align-items: center; gap: 16px; margin-bottom: 18px;
+               background: var(--band); margin-left: -48px; margin-right: -48px; padding: 12px 48px; }
+  .num { width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--navy); background: #fff;
+         display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; flex: none; }
+  .step-head h2 { font-family: var(--serif); font-size: 26px; margin: 0; }
+  .step-head span { font-family: var(--serif); color: var(--muted); font-size: 16px; margin-left: 4px; }
+
+  .grid { display: grid; gap: 26px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 10px; }
+  h3 small { font-family: var(--sans); font-weight: 400; font-size: 13.5px; color: var(--muted); }
+  .tag { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+         text-transform: uppercase; color: #fff; padding: 2px 8px; border-radius: 3px;
+         margin-right: 6px; vertical-align: 2px; }
+  .tag.c { background: var(--coch); }
+  .tag.e { background: var(--navy); }
+
+  pre.code { margin: 0; background: var(--code-bg); border: 1px solid var(--line); padding: 14px 16px;
+             font-family: var(--mono); font-size: 13.5px; line-height: 1.55; color: var(--navy); white-space: pre; }
+  pre.code.coch { border-left: 4px solid var(--coch); }
+  pre.code.easy { border-left: 4px solid var(--navy); }
+  .cm { color: #7A8391; font-style: italic; }
+  .f { color: var(--navy); font-weight: 700; }
+  .s { color: var(--red); }
+  .a { color: var(--blue); }
+
+  table.cmp { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 18px; }
+  table.cmp th { background: var(--navy); color: #fff; font-weight: 600; padding: 7px 10px; text-align: left; font-size: 13.5px; }
+  table.cmp th.coch { background: var(--coch); }
+  table.cmp th.pub { background: var(--grey); }
+  table.cmp td { padding: 6px 10px; border-bottom: 1px solid var(--band); font-family: var(--mono); font-size: 13px; }
+  table.cmp td:first-child { font-family: var(--sans); font-size: 14px; }
+  table.cmp td.d { text-align: center; color: var(--green); font-weight: 700; }
+  table.cmp td.d.warn { color: var(--amber); }
+  table.cmp tr.sub td { background: #FAFAFB; font-family: var(--serif); font-size: 13.5px; color: var(--muted); font-style: italic; }
+
+  .pit { border: 1px solid var(--line); border-left: 4px solid var(--amber); padding: 10px 14px; font-size: 14px;
+         line-height: 1.45; margin-top: 14px; }
+  .pit b { font-family: var(--serif); font-size: 15.5px; display: block; margin-bottom: 3px; }
+  .pit code, td code { font-family: var(--mono); font-size: 12.5px; color: var(--navy); }
+  footer { text-align: center; padding: 14px 48px; font-family: var(--serif); font-size: 13.5px; color: var(--muted);
+           border-top: 1px solid var(--line); }
+  footer code { font-family: var(--mono); font-size: 12.5px; color: var(--navy); }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <h1>meta3l validation</h1>
+    <p>Four published three-level meta-analyses: the authors' metafor code and meta3l, on the same data</p>
+    <div class="flow">
+      <span class="pill">Nature Human Behaviour, open OSF data</span><span class="arrow">&harr;</span>
+      <span class="pill">authors' rma.mv code</span><span class="arrow">&harr;</span>
+      <span class="pill">meta3L(..., rho = 0)</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat ok"><b>4 / 4</b><span>pooled estimates equal to the authors' code on the same rows, to the 4th decimal</span></div>
+    <div class="stat ok"><b>4 / 4</b><span>variance components and multilevel I&sup2; (between, within) equal</span></div>
+    <div class="stat ok"><b>CR2</b><span>robust intervals identical where the paper used CR2; up to 0.005 wider than model-based ones</span></div>
+    <div class="stat note"><b>rho = 0</b><span>used to match the papers; the default <code>rho = 0.5</code> moves the estimates by 0.003 to 0.02</span></div>
+  </div>
+
+  <!-- STUDY 1 -->
+  <section class="step">
+    <div class="step-head"><div class="num">1</div><h2>Human-AI combinations</h2><span>Vaccaro, Almaatouq &amp; Malone 2024; SMD, 370 effects in 106 experiments</span></div>
+    <div class="grid g2">
+      <div>
+        <h3><span class="tag c">Authors</span> AnalysisScript_Final.Rmd <small>(key lines)</small></h3>
+        <pre class="code coch">df &lt;- <span class="f">escalc</span>(<span class="s">"SMD"</span>, m1i = Avg_Perf_HumanAI_Adj, ...,
+             m2i = Avg_Perf_Baseline_Adj, n2i = N_Human,
+             vtype = <span class="s">"LS"</span>, data = d)
+m &lt;- <span class="f">rma.mv</span>(yi, vi, data = df, tdist = <span class="a">TRUE</span>,
+            random = ~ 1 | Exp_ID_Cleaned/ES_ID)
+<span class="f">robust</span>(m, cluster = Exp_ID_Cleaned, clubSandwich = <span class="a">TRUE</span>)</pre>
+      </div>
+      <div>
+        <h3><span class="tag e">meta3l</span> the same analysis</h3>
+        <pre class="code easy">r &lt;- <span class="f">meta3L</span>(dat, slab = <span class="s">"studlab"</span>, measure = <span class="s">"SMD"</span>,
+            rho = 0)
+<span class="cm"># studlab = Exp_ID_Cleaned; .e = human-AI, .c = baseline</span>
+<span class="f">moderator3L</span>(r, subgroup = <span class="s">"Task_Type"</span>)</pre>
+      </div>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>Measure</th><th class="pub">Published</th><th class="coch">Authors' code, one ID per row</th><th>meta3l</th><th style="text-align:center">|&Delta;|</th></tr></thead>
+      <tbody>
+        <tr><td>Synergy, g (95% CI, CR2)</td><td>&minus;0.23 (&minus;0.39, &minus;0.07)</td><td>&minus;0.2387 (&minus;0.3956, &minus;0.0819)</td><td>&minus;0.2387 (&minus;0.3956, &minus;0.0819)</td><td class="d">0</td></tr>
+        <tr><td>&sigma;&sup2; between / within</td><td>total 1.19</td><td>0.2920 / 0.8838</td><td>0.2920 / 0.8838</td><td class="d">0</td></tr>
+        <tr><td>I&sup2; total (between, within)</td><td>97.7% (73.8, 23.9)*</td><td>&nbsp;</td><td>97.7% (24.3, 73.4)</td><td class="d">&nbsp;</td></tr>
+        <tr class="sub"><td colspan="5">The authors' file repeats 13 effect IDs inside the same experiment, so their fit (&minus;0.2299) treats each pair as one effect; meta3l numbers every row. * Their code computes 23.9% between and 73.8% within; Table S5 swaps the two labels.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- STUDY 2 -->
+  <section class="step">
+    <div class="step-head"><div class="num">2</div><h2>Intrusive memories</h2><span>Varma et al. 2024; SMD, 370 effects in 139 experiments</span></div>
+    <div class="grid g2">
+      <div>
+        <h3><span class="tag c">Authors</span> 02Analysis.R <small>(key lines)</small></h3>
+        <pre class="code coch">m &lt;- <span class="f">rma.mv</span>(yi = yi_pos, V = vi, data = df,
+            random = ~ 1 | StudyID/EffectSizeID)
+<span class="cm"># subgroups: separate fits for Decrease / Increase</span></pre>
+      </div>
+      <div>
+        <h3><span class="tag e">meta3l</span> the same analysis</h3>
+        <pre class="code easy">r &lt;- <span class="f">meta3L</span>(dat, slab = <span class="s">"studlab"</span>, measure = <span class="s">"SMD"</span>,
+            rho = 0)
+<span class="cm"># .e = comparison, .c = experimental (fewer intrusions &gt; 0)</span></pre>
+      </div>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>Measure</th><th class="pub">Published (370 rows)</th><th class="coch">Authors' code, 364 rows with arm data</th><th>meta3l</th><th style="text-align:center">|&Delta; g|</th></tr></thead>
+      <tbody>
+        <tr><td>All techniques, g</td><td>0.159 (0.09, 0.23)</td><td>0.1463 (0.0780, 0.2146)</td><td>0.1463 (0.0774, 0.2152)</td><td class="d">0</td></tr>
+        <tr><td>&sigma;&sup2; between / within</td><td>0.1282 / &asymp;0</td><td>0.1256 / 0.0000</td><td>0.1256 / 0.0000</td><td class="d">0</td></tr>
+        <tr><td>Decrease subgroup, g</td><td>0.309 (0.23, 0.39)</td><td>0.2981 (0.2195, 0.3767)</td><td>0.2981 (0.2185, 0.3776)</td><td class="d">0</td></tr>
+        <tr><td>Increase subgroup, g</td><td>&minus;0.132 (&minus;0.25, &minus;0.02)</td><td>&minus;0.1443 (&minus;0.2596, &minus;0.0291)</td><td>&minus;0.1443 (&minus;0.2625, &minus;0.0262)</td><td class="d">0</td></tr>
+        <tr class="sub"><td colspan="5">6 effects were computed from t statistics and have no means and SDs, so meta3l cannot use them. On all 370 rows the authors' code gives the published 0.1593. The within-study variance sits on the zero boundary in both fits.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- STUDY 3 -->
+  <section class="step">
+    <div class="step-head"><div class="num">3</div><h2>Ethics education</h2><span>Basarkod et al. 2026; SMD, 185 effects in 54 studies</span></div>
+    <div class="grid g2">
+      <div>
+        <h3><span class="tag c">Authors</span> R_Script_Analysis.R <small>(key lines)</small></h3>
+        <pre class="code coch">m &lt;- <span class="f">rma.mv</span>(yi = smd, V = smd_v, data = noaltint,
+            random = ~ 1 | apa_citation/effect_id)</pre>
+      </div>
+      <div>
+        <h3><span class="tag e">meta3l</span> the same analysis</h3>
+        <pre class="code easy">r &lt;- <span class="f">meta3L</span>(dat, slab = <span class="s">"studlab"</span>, measure = <span class="s">"SMD"</span>,
+            rho = 0)   <span class="cm"># studlab = apa_citation</span></pre>
+      </div>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>Measure</th><th class="pub">Published (185 rows)</th><th class="coch">Authors' code, 173 rows with arm data</th><th>meta3l</th><th style="text-align:center">|&Delta;|</th></tr></thead>
+      <tbody>
+        <tr><td>Ethical and moral outcomes, g</td><td>0.65 (0.49, 0.81)</td><td>0.6574 (0.4880, 0.8268)</td><td>0.6574 (0.4835, 0.8313)</td><td class="d">0</td></tr>
+        <tr><td>&sigma;&sup2; between / within</td><td>not accessible</td><td>0.2876 / 0.1197</td><td>0.2876 / 0.1197</td><td class="d">0</td></tr>
+        <tr><td>I&sup2; total (between, within)</td><td>not accessible</td><td>88.8% (62.7, 26.1)</td><td>88.8% (62.7, 26.1)</td><td class="d">0</td></tr>
+        <tr class="sub"><td colspan="5">12 effects were derived from F, chi-square or p values and have no arm data. On all 185 rows the authors' code gives 0.6528 (0.4926, 0.8129), the published 0.65 (0.49, 0.81).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- STUDY 4 -->
+  <section class="step">
+    <div class="step-head"><div class="num">4</div><h2>Early-career researchers</h2><span>Dreisoerner et al. 2026; prevalence (arcsine), 353 effects in 87 studies</span></div>
+    <div class="grid g2">
+      <div>
+        <h3><span class="tag c">Authors</span> prevalence_code.qmd <small>(key lines)</small></h3>
+        <pre class="code coch">ES_t  &lt;- <span class="f">asin</span>(<span class="f">sqrt</span>(ES));  var_t &lt;- 1/(4*Sample_size)
+m &lt;- <span class="f">rma.mv</span>(ES_t, var_t, tdist = <span class="a">TRUE</span>,
+            random = <span class="f">list</span>(~ 1 | EffectID, ~ 1 | StudyID))
+<span class="f">sin</span>(m$b)^2 * 100</pre>
+      </div>
+      <div>
+        <h3><span class="tag e">meta3l</span> the same analysis</h3>
+        <pre class="code easy">r &lt;- <span class="f">meta3L</span>(dat, slab = <span class="s">"studlab"</span>, measure = <span class="s">"PAS"</span>,
+            event = <span class="s">"event"</span>, n = <span class="s">"n"</span>, rho = 0)
+<span class="f">moderator3L</span>(r, subgroup = <span class="s">"Outcome"</span>)</pre>
+      </div>
+    </div>
+    <table class="cmp">
+      <thead><tr><th>Measure</th><th class="pub">Published</th><th class="coch">Authors' code</th><th>meta3l</th><th style="text-align:center">|&Delta;|</th></tr></thead>
+      <tbody>
+        <tr><td>Pooled prevalence (95% CI)</td><td>29.9% (26.1, 33.9)</td><td>29.75% (25.96, 33.69)</td><td>29.75% (25.92, 33.73)</td><td class="d">0</td></tr>
+        <tr><td>&sigma;&sup2; between / within</td><td>0.0324 / 0.0121</td><td>0.0330 / 0.0128</td><td>0.0330 / 0.0128</td><td class="d">0</td></tr>
+        <tr><td>I&sup2; total (between, within)</td><td>99.5% (71.9, 27.7)</td><td>99.5% (71.7, 27.8)</td><td>99.5% (71.7, 27.8)</td><td class="d">0</td></tr>
+        <tr><td>Depression / anxiety</td><td>29.8% / 29.7%</td><td>&nbsp;</td><td>29.7% / 29.5%</td><td class="d warn">&le; 0.2</td></tr>
+        <tr class="sub"><td colspan="5">The 0.15-point gap to the paper is already between the paper and the authors' own file (87 studies in the file, "k = 86" in the text). Events were rebuilt as proportion &times; n; meta3l accepts non-integer counts.</td></tr>
+      </tbody>
+    </table>
+    <div class="pit"><b>Why the intervals differ slightly</b>
+      meta3l always reports CR2 cluster-robust intervals (<code>clubSandwich</code>). Study 1 used CR2 and the
+      intervals are identical; studies 2 to 4 used model-based intervals, so meta3l's are equal or up to
+      0.005 wider. The estimates and variance components do not depend on this choice.</div>
+  </section>
+
+  <footer>Data: OSF projects wrq7c, phu7w, tq7dg, r9nkd &middot; run it yourself: README, section 7 &middot; page built with <code>node tutorial/render.mjs validation</code></footer>
+</div>
+</body>
+</html>
