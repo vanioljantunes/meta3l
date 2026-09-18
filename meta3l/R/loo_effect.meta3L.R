@@ -5,9 +5,9 @@
 #'
 #' @param x An S3 object to dispatch on.
 #' @param ... Additional arguments passed to methods.
-#' @return A named list; see \code{\link{loo_effect.meta3l_result}}.
+#' @return A named list; see \code{\link{loo_effect3L.meta3l_result}}.
 #' @export
-loo_effect <- function(x, ...) UseMethod("loo_effect")
+loo_effect3L <- function(x, ...) UseMethod("loo_effect3L")
 
 #' Effect-level leave-one-out sensitivity analysis for meta3l_result objects
 #'
@@ -40,9 +40,9 @@ loo_effect <- function(x, ...) UseMethod("loo_effect")
 #' @importFrom metafor rma.mv robust
 #' @importFrom grDevices png pdf dev.off
 #' @importFrom stats as.formula
-#' @method loo_effect meta3l_result
+#' @method loo_effect3L meta3l_result
 #' @export
-loo_effect.meta3l_result <- function(x,
+loo_effect3L.meta3l_result <- function(x,
                                       file   = character(0),
                                       format = "png",
                                       width  = NULL,

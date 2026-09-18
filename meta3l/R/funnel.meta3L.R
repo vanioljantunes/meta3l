@@ -11,7 +11,7 @@
 #' @return Invisibly, a list with the asymmetry test(s) and the file path.
 #'
 #' @export
-funnel <- function(x, ...) UseMethod("funnel")
+funnel3L <- function(x, ...) UseMethod("funnel3L")
 
 #' Test for funnel plot asymmetry in a three-level model (internal)
 #'
@@ -205,7 +205,7 @@ funnel_table <- function(rows) {
 #'
 #' @param objs Named list of \code{meta3l_result} objects to draw.
 #' @param title,xlab,ylab,xlim,test,file,format,width,height As in
-#'   \code{\link{funnel}}.
+#'   \code{\link{funnel3L}}.
 #' @return Invisibly a list with \code{test} and \code{file}.
 #' @keywords internal
 funnel_draw <- function(objs, title, xlab, ylab, xlim, test,
@@ -326,9 +326,9 @@ funnel_draw <- function(objs, title, xlab, ylab, xlim, test,
 #'   \code{skipped}.
 #'
 #' @importFrom grDevices rgb png pdf dev.off
-#' @method funnel meta3l_result
+#' @method funnel3L meta3l_result
 #' @export
-funnel.meta3l_result <- function(x,
+funnel3L.meta3l_result <- function(x,
                                  min.studies = 10L,
                                  xlim        = NULL,
                                  xlab        = NULL,
@@ -357,12 +357,12 @@ funnel.meta3l_result <- function(x,
               name_for_file = if (!is.null(x$name)) x$name else "meta3l_plot")
 }
 
-#' @rdname funnel
+#' @rdname funnel3L
 #' @param name Character string; base name used when \code{file} is
 #'   auto-generated.  List method only.
-#' @method funnel list
+#' @method funnel3L list
 #' @export
-funnel.list <- function(x,
+funnel3L.list <- function(x,
                         min.studies = 10L,
                         xlim        = NULL,
                         xlab        = NULL,
@@ -378,7 +378,7 @@ funnel.list <- function(x,
 
   ok <- vapply(x, inherits, logical(1L), what = "meta3l_result")
   if (!all(ok)) {
-    stop("funnel() needs meta3l_result objects; offending position(s): ",
+    stop("funnel3L() needs meta3l_result objects; offending position(s): ",
          paste(which(!ok), collapse = ", "), ".", call. = FALSE)
   }
 

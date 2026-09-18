@@ -97,17 +97,17 @@ result$model       # the underlying rma.mv object (full metafor access)
 
 ## Forest Plots
 
-`forest.meta3L()` draws a publication-quality forest plot using grid graphics.
+`forest3L.meta3L()` draws a publication-quality forest plot using grid graphics.
 
 ```{r eval=FALSE}
 # Display in the viewer (no file saved)
-forest.meta3L(result, file = NULL)
+forest3L.meta3L(result, file = NULL)
 
 # Save with an auto-generated filename (meta3l_plot_YYYYMMDD_HHMMSS.png)
-forest.meta3L(result)
+forest3L.meta3L(result)
 
 # Add annotation columns for raw data
-forest.meta3L(
+forest3L.meta3L(
   result,
   ilab     = c("event", "n"),
   ilab.lab = c("Events", "Total"),
@@ -115,7 +115,7 @@ forest.meta3L(
 )
 
 # Save as PDF with an explicit path
-forest.meta3L(result, file = "my_forest.pdf", format = "pdf")
+forest3L.meta3L(result, file = "my_forest.pdf", format = "pdf")
 ```
 
 Key arguments:
@@ -133,7 +133,7 @@ Key arguments:
 
 ## Subgroup Analysis
 
-Use `moderator()` to test a categorical moderator. It fits a model with a
+Use `moderator3L()` to test a categorical moderator. It fits a model with a
 fixed effect for the subgroup variable and reports:
 
 - Wald test for the moderator (from `robust()`)
@@ -141,14 +141,14 @@ fixed effect for the subgroup variable and reports:
 - Per-subgroup pooled estimates on the back-transformed scale
 
 ```{r eval=FALSE}
-mod_result <- moderator(result, subgroup = "region")
+mod_result <- moderator3L(result, subgroup = "region")
 print(mod_result)
 ```
 
 To visualise subgroup-specific pooled estimates alongside individual studies:
 
 ```{r eval=FALSE}
-forest_subgroup.meta3L(result, subgroup = "region", file = NULL)
+forest_subgroup3L.meta3L(result, subgroup = "region", file = NULL)
 ```
 
 The subgroup forest plot groups rows by level of `subgroup`, inserts a
@@ -157,11 +157,11 @@ the bottom.
 
 ## Meta-Regression: Continuous Moderator
 
-`bubble.meta3L()` fits a meta-regression with a continuous moderator and
+`bubble3L.meta3L()` fits a meta-regression with a continuous moderator and
 draws a bubble plot where bubble sizes are proportional to study precision.
 
 ```{r eval=FALSE}
-bub <- bubble.meta3L(result, mod = "year", file = NULL)
+bub <- bubble3L.meta3L(result, mod = "year", file = NULL)
 
 # Summary of the meta-regression model
 bub$summary
@@ -180,7 +180,7 @@ level structure:
 **Cluster-level LOO** — drop one study (cluster) at a time:
 
 ```{r eval=FALSE}
-loo_c <- loo_cluster(result, file = NULL)
+loo_c <- loo_cluster3L(result, file = NULL)
 
 # Table of results: one row per dropped study
 loo_c$table
@@ -190,7 +190,7 @@ loo_c$table
 **Effect-level LOO** — drop one effect size at a time:
 
 ```{r eval=FALSE}
-loo_e <- loo_effect(result, file = NULL)
+loo_e <- loo_effect3L(result, file = NULL)
 
 # Table of results: one row per dropped effect size
 loo_e$table
@@ -227,15 +227,15 @@ The typical meta3l workflow is:
 
 1. **Fit**: `result <- meta3L(dat, slab, event, n, measure)`
 2. **Inspect**: `print(result)` / `summary(result)`
-3. **Visualise**: `forest.meta3L(result)`
-4. **Subgroup**: `moderator(result, subgroup)` + `forest_subgroup.meta3L(result, subgroup)`
-5. **Regression**: `bubble.meta3L(result, mod)`
-6. **Sensitivity**: `loo_cluster(result)` / `loo_effect(result)`
+3. **Visualise**: `forest3L.meta3L(result)`
+4. **Subgroup**: `moderator3L(result, subgroup)` + `forest_subgroup3L.meta3L(result, subgroup)`
+5. **Regression**: `bubble3L.meta3L(result, mod)`
+6. **Sensitivity**: `loo_cluster3L(result)` / `loo_effect3L(result)`
 
 All six effect size measures (`PLO`, `PAS`, `SMD`, `MD`, `RR`, `OR`) follow
 the same workflow — meta3l selects the correct escalc call and applies the
 appropriate back-transformation automatically.
 
-For full argument documentation see `?meta3L`, `?forest.meta3L`,
-`?moderator`, `?bubble.meta3L`, `?loo_cluster`, `?loo_effect`, and
+For full argument documentation see `?meta3L`, `?forest3L.meta3L`,
+`?moderator`, `?bubble3L.meta3L`, `?loo_cluster`, `?loo_effect`, and
 `?read_multisheet_excel`.

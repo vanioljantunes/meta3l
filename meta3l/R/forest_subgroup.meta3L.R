@@ -21,7 +21,7 @@
 #'   plot, or \code{NULL} if \code{file = NULL} (display only).
 #'
 #' @export
-forest_subgroup <- function(x, ...) UseMethod("forest_subgroup")
+forest_subgroup3L <- function(x, ...) UseMethod("forest_subgroup3L")
 
 # ---------------------------------------------------------------------------
 # S3 method
@@ -57,13 +57,13 @@ forest_subgroup <- function(x, ...) UseMethod("forest_subgroup")
 #' @param height Integer; output height in pixels.  \code{NULL} auto-computes.
 #' @param ... Currently ignored.
 #'
-#' @rdname forest_subgroup
+#' @rdname forest_subgroup3L
 #' @importFrom grDevices rgb png pdf dev.off
 #' @importFrom metafor rma.mv robust
 #' @importFrom stats qnorm
-#' @method forest_subgroup meta3L
+#' @method forest_subgroup3L meta3L
 #' @export
-forest_subgroup.meta3L <- function(x,
+forest_subgroup3L.meta3L <- function(x,
                                    subgroup,
                                    overall     = TRUE,
                                    qtest       = overall,
@@ -109,7 +109,7 @@ forest_subgroup.meta3L <- function(x,
   if (length(levels_vec) == 1L) {
     fpath <- resolve_file(x, file, format,
                           suffix = paste0("subgroup_", subgroup))
-    return(forest.meta3L(x,
+    return(forest3L.meta3L(x,
                          ilab        = ilab,
                          ilab.lab    = ilab.lab,
                          sortvar     = sortvar,
@@ -367,7 +367,7 @@ forest_subgroup.meta3L <- function(x,
   }
 
   # -------------------------------------------------------------------
-  # 6. Column layout (mirrors forest.meta3L)
+  # 6. Column layout (mirrors forest3L.meta3L)
   # -------------------------------------------------------------------
   # Pre-compute wrapped ilab values, wrapped headers, and per-column widths
   ilab_wrapped     <- list()

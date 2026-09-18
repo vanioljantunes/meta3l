@@ -22,7 +22,7 @@ funnel_draw(
 \item{objs}{Named list of \code{meta3l_result} objects to draw.}
 
 \item{title, xlab, ylab, xlim, test, file, format, width, height}{As in
-\code{\link{funnel}}.}
+\code{\link{funnel3L}}.}
 }
 \value{
 Invisibly a list with \code{test} and \code{file}.

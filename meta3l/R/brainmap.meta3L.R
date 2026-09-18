@@ -201,7 +201,7 @@ bm_draw_key <- function(nums, labels) {
 #'   \code{file = NULL}).
 #'
 #' @export
-brainmap <- function(x, ...) UseMethod("brainmap")
+brainmap3L <- function(x, ...) UseMethod("brainmap3L")
 
 # ---------------------------------------------------------------------------
 # Method for meta3l_bind
@@ -261,10 +261,10 @@ brainmap <- function(x, ...) UseMethod("brainmap")
 #' the rest of the slice stays neutral grey, and unmatched analyses are reported
 #' in a warning.
 #'
-#' @rdname brainmap
-#' @method brainmap meta3l_bind
+#' @rdname brainmap3L
+#' @method brainmap3L meta3l_bind
 #' @export
-brainmap.meta3l_bind <- function(x,
+brainmap3L.meta3l_bind <- function(x,
                                  view         = "axial_5",
                                  panels       = NULL,
                                  panel.labs   = NULL,
@@ -295,7 +295,7 @@ brainmap.meta3l_bind <- function(x,
   need <- c("ggseg", "ggplot2", "sf", "MetBrewer")
   miss <- need[!vapply(need, requireNamespace, logical(1L), quietly = TRUE)]
   if (length(miss) > 0L) {
-    stop("brainmap() needs the package(s) ", paste(miss, collapse = ", "),
+    stop("brainmap3L() needs the package(s) ", paste(miss, collapse = ", "),
          ". Install with install.packages(c(",
          paste0("\"", miss, "\"", collapse = ", "), ")).", call. = FALSE)
   }

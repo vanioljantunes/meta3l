@@ -16,7 +16,7 @@ A named list with elements \code{est}, \code{lb}, \code{ub},
   \code{pval}, \code{i2}, \code{k_eff}, \code{k_clust}, \code{ok}.
 }
 \description{
-Mirrors the per-subgroup fitting logic used by \code{forest_subgroup.meta3L}:
+Mirrors the per-subgroup fitting logic used by \code{forest_subgroup3L.meta3L}:
 three-level \code{rma.mv} + CR2 robust variance when the subset contains two
 or more clusters, two-level \code{rma} fallback otherwise.
 }

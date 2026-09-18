@@ -7,7 +7,7 @@
 \method{print}{meta3l_bind}(x, digits = 2L, ...)
 }
 \arguments{
-\item{x}{A \code{meta3l_bind} object from \code{\link{metabind}}.}
+\item{x}{A \code{meta3l_bind} object from \code{\link{metabind3L}}.}
 
 \item{digits}{Integer; digits for estimates and confidence limits.}
 

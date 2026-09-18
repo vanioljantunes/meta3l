@@ -11,7 +11,7 @@
 | **[3 · Data preparation](#3-data-preparation)**<br><sub>One row per effect size, one column per arm statistic</sub> | [Input formats](#input-formats) · [Clusters](#clusters-and-effect-sizes) · [Direction](#direction-of-effect) |
 | **[4 · Fitting the model](#4-fitting-the-model)**<br><sub>escalc, vcalc, rma.mv, CR2 and I² in one call</sub> | [Output](#output) · [Choosing rho](#choosing-rho) |
 | **[5 · Plots, subgroups and sensitivity](#5-plots-subgroups-and-sensitivity)**<br><sub>Forest, subgroup, meta-regression, leave-one-out, funnel</sub> | [Forest](#forest-plot) · [Subgroups](#subgroups) · [Meta-regression](#meta-regression) · [Leave-one-out](#leave-one-out) · [Funnel](#funnel-plot) |
-| **[6 · Combining analyses](#6-combining-analyses)**<br><sub>Several outcomes on one summary forest, brain maps</sub> | [metabind](#one-summary-forest) · [Patient counts](#patient-counts) · [Brain map](#brain-map) |
+| **[6 · Combining analyses](#6-combining-analyses)**<br><sub>Several outcomes on one summary forest, brain maps</sub> | [metabind3L](#one-summary-forest) · [Patient counts](#patient-counts) · [Brain map](#brain-map) |
 | **[7 · Validation](#7-validation-against-published-three-level-meta-analyses)**<br><sub>Four Nature Human Behaviour meta-analyses, their code vs meta3l</sub> | [Results](#results) · [Run it yourself](#run-it-yourself) |
 
 <sub>[References](#references) · [License](#license)</sub>
@@ -63,24 +63,37 @@ remotes::install_github("vanioljantunes/meta3l", subdir = "meta3l")
 
 **Optional**, for the brain map only: `ggseg`, `ggplot2`, `sf`, `MetBrewer`.
 
-**Load metafor first, then meta3l:**
+**Every user function ends in `3L`** (`meta3L()`, `forest3L()`,
+`funnel3L()`, `metabind3L()`, ...), so loading `metafor` or `meta` before or
+after meta3l never hides one of them. Scripts written for meta3l 0.1.0 need
+the new names:
 
-```r
-library(metafor)
-library(meta3l)
-```
-
-`forest()` is metafor's generic, so it needs metafor attached. Loading
-meta3l second keeps its `funnel()` in front of metafor's.
+| Before | Now |
+|---|---|
+| `forest(r)` | `forest3L(r)` |
+| `forest_subgroup(r, ...)` | `forest_subgroup3L(r, ...)` |
+| `moderator(r, ...)` | `moderator3L(r, ...)` |
+| `bubble(r, ...)` | `bubble3L(r, ...)` |
+| `loo_cluster(r)`, `loo_effect(r)` | `loo_cluster3L(r)`, `loo_effect3L(r)` |
+| `funnel(r)` | `funnel3L(r)` |
+| `metabind(...)` | `metabind3L(...)` |
+| `brainmap(mb, ...)` | `brainmap3L(mb, ...)` |
 
 ### Tutorial
 
-From an Excel extraction sheet to the figures in four steps: read the
-workbook (one sheet per outcome), fit each outcome with `meta3L()`, draw
-its plots, then bind the outcomes into one summary forest.
+From an Excel extraction sheet to the figures in four steps: load the
+package, read the workbook (one sheet per outcome), fit each outcome with
+`meta3L()` and draw its plots, then bind the outcomes into one summary
+forest. The example uses `dat.bornmann2007` from `metadat` (installed with
+metafor): 66 odds ratios of women vs men being awarded, nested in 21 studies.
+
+![meta3l tutorial](meta3l/man/figures/tutorial.png)
+
+The page is built from `meta3l/tutorial/tutorial.html` (`Rscript tutorial/plot.R`,
+then `node tutorial/render.mjs`, both from the `meta3l/` folder). The same
+steps with your own workbook:
 
 ```r
-library(metafor)
 library(meta3l)
 
 # 1. Read every sheet of the workbook into a named list
@@ -94,14 +107,14 @@ r_putamen <- meta3L(ma[["Outcome_putamen"]], slab = "studlab",
 r_putamen
 
 # 3. Plots for that outcome
-forest(r_putamen)
-forest_subgroup(r_putamen, subgroup = "side")
-loo_cluster(r_putamen)
+forest3L(r_putamen)
+forest_subgroup3L(r_putamen, subgroup = "side")
+loo_cluster3L(r_putamen)
 
 # 4. All outcomes on one summary forest
-mb <- metabind(Putamen = r_putamen, Caudate = r_caudate,
+mb <- metabind3L(Putamen = r_putamen, Caudate = r_caudate,
                subgroup = "side")
-forest(mb, analysis.lab = "Region")
+forest3L(mb, analysis.lab = "Region")
 ```
 
 `read_multisheet_excel()` builds a `studlab` column (`"author, year"`)
@@ -209,8 +222,8 @@ PDF. The output folder is `getOption("meta3l.mwd")`.
 ### Forest plot
 
 ```r
-forest(r)
-forest(r, ilab = c("side", "n.e", "n.c"),
+forest3L(r)
+forest3L(r, ilab = c("side", "n.e", "n.c"),
        ilab.lab = c("Side", "N WD", "N HC"),
        sortvar = "yi", xlab = "Mean difference (ppb)")
 ```
@@ -218,28 +231,28 @@ forest(r, ilab = c("side", "n.e", "n.c"),
 ### Subgroups
 
 ```r
-mod <- moderator(r, subgroup = "intervention")
+mod <- moderator3L(r, subgroup = "intervention")
 mod            # per-level estimates, robust Wald test, likelihood-ratio test
 
-forest_subgroup(r, subgroup = "intervention")
+forest_subgroup3L(r, subgroup = "intervention")
 ```
 
-`moderator()` fits one model with the subgroup as a categorical moderator
+`moderator3L()` fits one model with the subgroup as a categorical moderator
 (shared variance components) and reports the CR2 Wald test and an ML
 likelihood-ratio test against the model without it.
 
 ### Meta-regression
 
 ```r
-b <- bubble(r, mod = "year")
+b <- bubble3L(r, mod = "year")
 b$summary      # slope, CI, robust p, R2
 ```
 
 ### Leave-one-out
 
 ```r
-loo_cluster(r)   # drop one study at a time
-loo_effect(r)    # drop one effect size at a time
+loo_cluster3L(r)   # drop one study at a time
+loo_effect3L(r)    # drop one effect size at a time
 ```
 
 Each returns a table of the pooled estimate and I² after every omission and
@@ -248,8 +261,8 @@ draws the influence plot.
 ### Funnel plot
 
 ```r
-funnel(r)                                   # one outcome
-funnel(list(Putamen = r_putamen,
+funnel3L(r)                                   # one outcome
+funnel3L(list(Putamen = r_putamen,
             Caudate = r_caudate))           # several panels in one figure
 ```
 
@@ -262,12 +275,12 @@ asymmetry test is not informative below that.
 
 ### One summary forest
 
-`metabind()` stacks several `meta3l_result` objects into one table and one
+`metabind3L()` stacks several `meta3l_result` objects into one table and one
 forest, with no new pooling across them. With `subgroup` each outcome is
 broken down by that column, with the test for subgroup differences.
 
 ```r
-mb <- metabind(
+mb <- metabind3L(
   Putamen     = r_putamen,
   Caudate     = r_caudate,
   Thalamus    = r_thalamus,
@@ -275,7 +288,7 @@ mb <- metabind(
   patients.by = "intervention"
 )
 mb
-forest(mb, analysis.lab = "Region", xlab = "Mean difference (ppb)")
+forest3L(mb, analysis.lab = "Region", xlab = "Mean difference (ppb)")
 ```
 
 ### Patient counts
@@ -293,11 +306,11 @@ counting the same people twice:
 
 ### Brain map
 
-For neuroimaging outcomes, `brainmap()` shades a FreeSurfer segmentation by
+For neuroimaging outcomes, `brainmap3L()` shades a FreeSurfer segmentation by
 the pooled estimate of each region, one panel per subgroup level:
 
 ```r
-brainmap(mb, panels = c("Overall", "Neuro Wilson", "Hepatic Wilson"))
+brainmap3L(mb, panels = c("Overall", "Neuro Wilson", "Hepatic Wilson"))
 ```
 
 ---
@@ -324,6 +337,11 @@ both conditions at the time of the search (September 2026).
 | 2 | Varma et al. 2024, modulating intrusive memories | SMD | 370 / 139 experiments | [osf.io/phu7w](https://osf.io/phu7w/) |
 | 3 | Basarkod et al. 2026, ethics education | SMD | 185 / 54 studies | [osf.io/tq7dg](https://osf.io/tq7dg/) |
 | 4 | Dreisoerner et al. 2026, mental health problems in early-career researchers | PAS | 353 / 87 studies | [osf.io/r9nkd](https://osf.io/r9nkd/) |
+
+![meta3l validation](meta3l/man/figures/validation.png)
+
+The validation page is built from `meta3l/tutorial/validation.html`
+(`node tutorial/render.mjs validation`).
 
 ### Results
 
@@ -409,7 +427,7 @@ dat <- data.frame(
 )
 r <- meta3L(dat, slab = "studlab", measure = "SMD", rho = 0)
 r                                  # g = -0.239 [-0.396, -0.082]
-moderator(r, subgroup = "Task_Type")
+moderator3L(r, subgroup = "Task_Type")
 ```
 
 </details>
@@ -478,7 +496,7 @@ dat <- data.frame(
 )
 r <- meta3L(dat, slab = "studlab", measure = "PAS", rho = 0)
 r                                  # 0.298 [0.259, 0.337]
-moderator(r, subgroup = "Outcome")
+moderator3L(r, subgroup = "Outcome")
 ```
 
 </details>

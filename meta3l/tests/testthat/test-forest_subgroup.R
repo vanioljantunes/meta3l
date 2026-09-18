@@ -1,4 +1,4 @@
-# test-forest_subgroup.R — Smoke tests for forest_subgroup.meta3L()
+# test-forest_subgroup.R — Smoke tests for forest_subgroup3L.meta3L()
 
 # ---------------------------------------------------------------------------
 # Fixture factory
@@ -21,43 +21,43 @@ make_subgroup_fixture <- function() {
 # Core smoke tests
 # ---------------------------------------------------------------------------
 
-test_that("forest_subgroup.meta3L produces a non-empty PNG file", {
+test_that("forest_subgroup3L.meta3L produces a non-empty PNG file", {
   result <- make_subgroup_fixture()
   out <- tempfile(fileext = ".png")
-  ret <- forest_subgroup.meta3L(result, subgroup = "subgroup", file = out)
+  ret <- forest_subgroup3L.meta3L(result, subgroup = "subgroup", file = out)
   expect_true(file.exists(out))
   expect_gt(file.info(out)$size, 10000)
 })
 
-test_that("forest_subgroup.meta3L returns the file path invisibly", {
+test_that("forest_subgroup3L.meta3L returns the file path invisibly", {
   result <- make_subgroup_fixture()
   out <- tempfile(fileext = ".png")
-  ret <- forest_subgroup.meta3L(result, subgroup = "subgroup", file = out)
+  ret <- forest_subgroup3L.meta3L(result, subgroup = "subgroup", file = out)
   expect_equal(ret, out)
 })
 
-test_that("forest_subgroup.meta3L with overall=FALSE still produces file > 5000 bytes", {
+test_that("forest_subgroup3L.meta3L with overall=FALSE still produces file > 5000 bytes", {
   result <- make_subgroup_fixture()
   out <- tempfile(fileext = ".png")
-  forest_subgroup.meta3L(result, subgroup = "subgroup", overall = FALSE, file = out)
+  forest_subgroup3L.meta3L(result, subgroup = "subgroup", overall = FALSE, file = out)
   expect_true(file.exists(out))
   expect_gt(file.info(out)$size, 5000)
 })
 
-test_that("forest_subgroup.meta3L errors when subgroup column not found", {
+test_that("forest_subgroup3L.meta3L errors when subgroup column not found", {
   result <- make_subgroup_fixture()
   out <- tempfile(fileext = ".png")
   expect_error(
-    forest_subgroup.meta3L(result, subgroup = "nonexistent_col", file = out),
+    forest_subgroup3L.meta3L(result, subgroup = "nonexistent_col", file = out),
     "not found"
   )
 })
 
-test_that("forest_subgroup.meta3L with ilab argument produces file without error", {
+test_that("forest_subgroup3L.meta3L with ilab argument produces file without error", {
   result <- make_subgroup_fixture()
   out <- tempfile(fileext = ".png")
   expect_no_error(
-    forest_subgroup.meta3L(result, subgroup = "subgroup",
+    forest_subgroup3L.meta3L(result, subgroup = "subgroup",
                            ilab = c("xi", "ni"),
                            ilab.lab = c("Events", "Total"),
                            file = out)
@@ -73,15 +73,15 @@ test_that("file naming contains 'subgroup_' in the path when auto-named", {
   options(meta3l.mwd = td)
   on.exit(options(meta3l.mwd = old_opt), add = TRUE)
 
-  ret <- forest_subgroup.meta3L(result, subgroup = "subgroup",
+  ret <- forest_subgroup3L.meta3L(result, subgroup = "subgroup",
                                 file = character(0))
   expect_true(grepl("subgroup_", ret))
 })
 
-test_that("forest_subgroup.meta3L in display-only mode (file=NULL) returns NULL without error", {
+test_that("forest_subgroup3L.meta3L in display-only mode (file=NULL) returns NULL without error", {
   result <- make_subgroup_fixture()
   grDevices::pdf(nullfile())
   on.exit(grDevices::dev.off(), add = TRUE)
-  ret <- forest_subgroup.meta3L(result, subgroup = "subgroup", file = NULL)
+  ret <- forest_subgroup3L.meta3L(result, subgroup = "subgroup", file = NULL)
   expect_null(ret)
 })

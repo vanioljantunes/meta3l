@@ -8,7 +8,7 @@
 
 #' Fit a three-level model on a row subset of a meta3l_result (internal)
 #'
-#' Mirrors the per-subgroup fitting logic used by \code{forest_subgroup.meta3L}:
+#' Mirrors the per-subgroup fitting logic used by \code{forest_subgroup3L.meta3L}:
 #' three-level \code{rma.mv} + CR2 robust variance when the subset contains two
 #' or more clusters, two-level \code{rma} fallback otherwise.
 #'
@@ -233,7 +233,7 @@ bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum"),
 }
 
 # ---------------------------------------------------------------------------
-# metabind()
+# metabind3L()
 # ---------------------------------------------------------------------------
 
 #' Combine several three-level meta-analyses into one summary object
@@ -302,23 +302,23 @@ bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum"),
 #'     \item{name}{The \code{name} argument as supplied.}
 #'   }
 #'
-#' @seealso \code{\link{forest_subgroup}} for a study-level subgroup forest of a
+#' @seealso \code{\link{forest_subgroup3L}} for a study-level subgroup forest of a
 #'   single analysis.
 #'
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' mb <- metabind(
+#' mb <- metabind3L(
 #'   Putamen  = r_putamen,
 #'   Caudate  = r_caudate,
 #'   Thalamus = r_thalamus,
 #'   subgroup = c("side", "intervention")
 #' )
 #' print(mb)
-#' forest(mb, analysis.lab = "Region", title = "QSM", file = character(0))
+#' forest3L(mb, analysis.lab = "Region", title = "QSM", file = character(0))
 #' }
-metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
+metabind3L <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
                      overall.first = FALSE, qtest = TRUE,
                      patients.method = c("max", "sum"), patients.by = NULL,
                      patients.total = "total", name = "metabind") {
@@ -332,11 +332,11 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
   }
 
   if (length(objs) == 0L) {
-    stop("metabind() needs at least one meta3l_result object.", call. = FALSE)
+    stop("metabind3L() needs at least one meta3l_result object.", call. = FALSE)
   }
   ok_class <- vapply(objs, inherits, logical(1L), what = "meta3l_result")
   if (!all(ok_class)) {
-    stop("All objects passed to metabind() must be meta3l_result objects ",
+    stop("All objects passed to metabind3L() must be meta3l_result objects ",
          "(offending position(s): ",
          paste(which(!ok_class), collapse = ", "), ").", call. = FALSE)
   }
@@ -492,7 +492,7 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
 
 #' Print a combined three-level meta-analysis object
 #'
-#' @param x      A \code{meta3l_bind} object from \code{\link{metabind}}.
+#' @param x      A \code{meta3l_bind} object from \code{\link{metabind3L}}.
 #' @param digits Integer; digits for estimates and confidence limits.
 #' @param ...    Currently ignored.
 #'
@@ -538,16 +538,16 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 
 #' Summary forest plot for combined three-level meta-analyses
 #'
-#' Draws one mark per pooled estimate collected by \code{\link{metabind}}: a
+#' Draws one mark per pooled estimate collected by \code{\link{metabind3L}}: a
 #' diamond for the pooled estimate of each analysis and a square for each
 #' subgroup level.  No study-level rows are drawn - use
-#' \code{\link{forest_subgroup}} for those.
+#' \code{\link{forest_subgroup3L}} for those.
 #'
 #' Each analysis opens with a header row carrying its name and, when the object
 #' was built with \code{subgroup}, the p-value of the omnibus test for subgroup
 #' differences of every category in brackets.
 #'
-#' @param x A \code{meta3l_bind} object returned by \code{\link{metabind}}.
+#' @param x A \code{meta3l_bind} object returned by \code{\link{metabind3L}}.
 #' @param analysis.lab Character string; header of the first column.  Defaults
 #'   to \code{"Outcome"}.
 #' @param refline Numeric scalar; x position of the vertical reference line.
@@ -592,9 +592,9 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #'   when \code{file = NULL}.
 #'
 #' @importFrom grDevices rgb png pdf dev.off
-#' @method forest meta3l_bind
+#' @method forest3L meta3l_bind
 #' @export
-forest.meta3l_bind <- function(x,
+forest3L.meta3l_bind <- function(x,
                                analysis.lab = "Outcome",
                                refline      = NULL,
                                xlim         = NULL,

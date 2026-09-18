@@ -1,9 +1,9 @@
-test_that("moderator.meta3L() returns object of class moderator_result", {
+test_that("moderator3L.meta3L() returns object of class moderator_result", {
   dat <- make_smd_data()
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
   expect_s3_class(mod_result, "moderator_result")
 })
 
@@ -12,7 +12,7 @@ test_that("moderator_result$wald contains QM, QMp, df fields", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   expect_true(is.numeric(mod_result$wald$QM))
   expect_true(is.numeric(mod_result$wald$QMp))
@@ -25,7 +25,7 @@ test_that("moderator_result$lrt contains statistic, pval, df fields", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   expect_true(!is.null(mod_result$lrt$statistic))
   expect_true(is.numeric(mod_result$lrt$statistic))
@@ -44,7 +44,7 @@ test_that("moderator_result$estimates is a data.frame with required columns", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   expect_s3_class(mod_result$estimates, "data.frame")
   expect_true(all(c("level", "k", "estimate", "ci.lb", "ci.ub") %in%
@@ -59,7 +59,7 @@ test_that("moderator_result$estimates values are back-transformed (SMD = identit
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   # For SMD, transf = identity, so estimate should be a plain numeric
   expect_true(is.numeric(mod_result$estimates$estimate))
@@ -72,7 +72,7 @@ test_that("moderator_result$estimates$k contains observation counts per subgroup
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   expect_true(all(mod_result$estimates$k > 0))
   expect_equal(sum(mod_result$estimates$k), nrow(dat))
@@ -83,31 +83,31 @@ test_that("moderator_result contains subgroup, measure, transf fields", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   expect_equal(mod_result$subgroup, "subgroup")
   expect_equal(mod_result$measure, "SMD")
   expect_true(is.function(mod_result$transf))
 })
 
-test_that("moderator.meta3L() errors on numeric moderator with message about bubble.meta3L()", {
+test_that("moderator3L.meta3L() errors on numeric moderator with message about bubble3L.meta3L()", {
   dat <- make_smd_data()
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
   expect_error(
-    moderator(result, subgroup = "dose"),
+    moderator3L(result, subgroup = "dose"),
     "bubble"
   )
 })
 
-test_that("moderator.meta3L() errors when subgroup column not found in data", {
+test_that("moderator3L.meta3L() errors when subgroup column not found in data", {
   dat <- make_smd_data()
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
   expect_error(
-    moderator(result, subgroup = "nonexistent"),
+    moderator3L(result, subgroup = "nonexistent"),
     "not found"
   )
 })
@@ -117,7 +117,7 @@ test_that("print.moderator_result() produces non-empty output", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   out <- capture.output(print(mod_result))
   expect_true(length(out) > 0)
@@ -128,7 +128,7 @@ test_that("print.moderator_result() output contains moderator name", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   out <- paste(capture.output(print(mod_result)), collapse = "\n")
   expect_true(grepl("subgroup", out, ignore.case = TRUE))
@@ -139,7 +139,7 @@ test_that("print.moderator_result() output contains Wald test info", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   out <- paste(capture.output(print(mod_result)), collapse = "\n")
   expect_true(grepl("QM|Wald", out, ignore.case = FALSE))
@@ -150,19 +150,19 @@ test_that("print.moderator_result() output contains LRT info", {
   result <- meta3L(dat, slab = "studlab", measure = "SMD",
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
-  mod_result <- moderator(result, subgroup = "subgroup")
+  mod_result <- moderator3L(result, subgroup = "subgroup")
 
   out <- paste(capture.output(print(mod_result)), collapse = "\n")
   expect_true(grepl("LRT|chi", out, ignore.case = TRUE))
 })
 
-test_that("moderator.meta3L() works with PLO measure", {
+test_that("moderator3L.meta3L() works with PLO measure", {
   dat <- make_plo_data()
   result <- meta3L(dat, slab = "studlab", measure = "PLO",
                    xi = "xi", ni = "ni")
   # PLO with small fixture data may produce convergence warnings for LRT
   suppressWarnings(
-    mod_result <- moderator(result, subgroup = "subgroup")
+    mod_result <- moderator3L(result, subgroup = "subgroup")
   )
   expect_s3_class(mod_result, "moderator_result")
   expect_true(is.numeric(mod_result$wald$QM))
@@ -171,7 +171,7 @@ test_that("moderator.meta3L() works with PLO measure", {
                     mod_result$estimates$estimate < 1))
 })
 
-test_that("moderator.meta3L() warns when a subgroup level has only 1 observation", {
+test_that("moderator3L.meta3L() warns when a subgroup level has only 1 observation", {
   dat <- make_smd_data()
   # add a third subgroup level with only 1 row
   single_row <- dat[1L, ]
@@ -181,7 +181,7 @@ test_that("moderator.meta3L() warns when a subgroup level has only 1 observation
                    m1i = "m1i", sd1i = "sd1i", n1i = "n1i",
                    m2i = "m2i", sd2i = "sd2i", n2i = "n2i")
   expect_warning(
-    moderator(result, subgroup = "subgroup"),
+    moderator3L(result, subgroup = "subgroup"),
     "1 observation"
   )
 })

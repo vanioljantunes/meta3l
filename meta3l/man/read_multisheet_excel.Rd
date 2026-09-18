@@ -30,7 +30,7 @@ a sheet, a \code{studlab} column is automatically constructed as
 \details{
 Sets the global option \code{meta3l.mwd} to the directory
   containing the Excel file. This directory is used as the default output
-  location by \code{forest.meta3L()}.
+  location by \code{forest3L.meta3L()}.
 }
 \examples{
 \dontrun{

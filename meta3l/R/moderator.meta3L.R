@@ -7,8 +7,8 @@
 #' @param ... Additional arguments passed to the specific method.
 #' @return A moderator result object (class depends on dispatch target).
 #' @export
-moderator <- function(x, ...) {
-  UseMethod("moderator")
+moderator3L <- function(x, ...) {
+  UseMethod("moderator3L")
 }
 
 
@@ -25,7 +25,7 @@ moderator <- function(x, ...) {
 #'   contains the categorical moderator (subgroup labels).  Must be a
 #'   \code{factor} or \code{character} column.  If the column is
 #'   \code{numeric} or \code{integer}, an error is thrown with a message
-#'   pointing to \code{bubble.meta3L()}.
+#'   pointing to \code{bubble3L.meta3L()}.
 #' @param ... Currently unused.
 #'
 #' @return An object of class \code{"moderator_result"}, a named list with:
@@ -44,14 +44,14 @@ moderator <- function(x, ...) {
 #'     \item{transf}{Back-transformation function from \code{x$transf}.}
 #'   }
 #'
-#' @method moderator meta3l_result
+#' @method moderator3L meta3l_result
 #' @export
 #' @importFrom stats anova predict
-moderator.meta3l_result <- function(x, subgroup, ...) {
+moderator3L.meta3l_result <- function(x, subgroup, ...) {
 
   # --- 0. GLMM guard -----------------------------------------------------------
   if (x$measure == "GLMM") {
-    stop("moderator() does not support measure = 'GLMM'. ",
+    stop("moderator3L() does not support measure = 'GLMM'. ",
          "rma.glmm does not support moderator (mods) arguments. ",
          "Use measure = 'PLO' for moderator analyses.",
          call. = FALSE)
@@ -70,7 +70,7 @@ moderator.meta3l_result <- function(x, subgroup, ...) {
   if (is.numeric(col_vals) || is.integer(col_vals)) {
     stop(
       "Column '", subgroup, "' is numeric. ",
-      "For continuous moderators, use bubble.meta3L() instead.",
+      "For continuous moderators, use bubble3L.meta3L() instead.",
       call. = FALSE
     )
   }

@@ -8,7 +8,7 @@
 }
 \arguments{
 \item{x}{An object of class \code{"moderator_result"} as returned by
-\code{moderator.meta3L()}.}
+\code{moderator3L.meta3L()}.}
 
 \item{digits}{Integer; number of decimal places for estimates and CIs
 (default: 3).}

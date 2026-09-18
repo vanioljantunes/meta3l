@@ -6,7 +6,7 @@
 #' intervals.
 #'
 #' @param x An object of class \code{"moderator_result"} as returned by
-#'   \code{moderator.meta3L()}.
+#'   \code{moderator3L.meta3L()}.
 #' @param digits Integer; number of decimal places for estimates and CIs
 #'   (default: 3).
 #' @param digits_p Integer; number of decimal places for p-values

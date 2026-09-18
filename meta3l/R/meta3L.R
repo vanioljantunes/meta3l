@@ -144,7 +144,7 @@ META_COL_MAP <- list(
 #'   \code{NULL} (default), auto-detects from a column named \code{"group.c"}
 #'   in \code{data}.
 #' @param name Character string; optional name for the analysis (e.g., the
-#'   Excel sheet name). Used by \code{forest.meta3L()} for default output
+#'   Excel sheet name). Used by \code{forest3L.meta3L()} for default output
 #'   filenames. Defaults to \code{NULL}.
 #'
 #' @return An object of class \code{"meta3l_result"}, a named list with the

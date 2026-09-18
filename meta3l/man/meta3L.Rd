@@ -178,7 +178,7 @@ Currently reserved for future use.}
 deviation.  Currently reserved for future use.}
 
 \item{name}{Character string; optional name for the analysis (e.g., the
-Excel sheet name). Used by \code{forest.meta3L()} for default output
+Excel sheet name). Used by \code{forest3L.meta3L()} for default output
 filenames. Defaults to \code{NULL}.}
 }
 \value{

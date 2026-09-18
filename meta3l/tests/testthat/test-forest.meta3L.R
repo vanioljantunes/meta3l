@@ -1,4 +1,4 @@
-# test-forest.meta3L.R — Smoke and integration tests for forest.meta3L()
+# test-forest.meta3L.R — Smoke and integration tests for forest3L.meta3L()
 
 # ---------------------------------------------------------------------------
 # Minimal fixture factory
@@ -19,39 +19,39 @@ make_forest_fixture <- function() {
 # Basic smoke tests
 # ---------------------------------------------------------------------------
 
-test_that("forest.meta3L produces a non-empty PNG file", {
+test_that("forest3L.meta3L produces a non-empty PNG file", {
   result <- make_forest_fixture()
   out <- tempfile(fileext = ".png")
-  forest.meta3L(result, file = out)
+  forest3L.meta3L(result, file = out)
   expect_true(file.exists(out))
   expect_gt(file.info(out)$size, 1000)
 })
 
-test_that("forest.meta3L produces a non-empty PDF file", {
+test_that("forest3L.meta3L produces a non-empty PDF file", {
   result <- make_forest_fixture()
   out <- tempfile(fileext = ".pdf")
-  forest.meta3L(result, file = out, format = "pdf")
+  forest3L.meta3L(result, file = out, format = "pdf")
   expect_true(file.exists(out))
   expect_gt(file.info(out)$size, 1000)
 })
 
-test_that("forest.meta3L runs without error in display-only mode (file=NULL)", {
+test_that("forest3L.meta3L runs without error in display-only mode (file=NULL)", {
   result <- make_forest_fixture()
   # Open a null device so drawing has somewhere to go; close after
   grDevices::pdf(nullfile())
   on.exit(grDevices::dev.off(), add = TRUE)
-  expect_no_error(forest.meta3L(result, file = NULL))
+  expect_no_error(forest3L.meta3L(result, file = NULL))
 })
 
 # ---------------------------------------------------------------------------
 # ilab columns
 # ---------------------------------------------------------------------------
 
-test_that("forest.meta3L with ilab columns produces file without error", {
+test_that("forest3L.meta3L with ilab columns produces file without error", {
   result <- make_forest_fixture()
   out <- tempfile(fileext = ".png")
   expect_no_error(
-    forest.meta3L(result, ilab = c("xi", "ni"),
+    forest3L.meta3L(result, ilab = c("xi", "ni"),
                   ilab.lab = c("Events", "Total"), file = out)
   )
   expect_true(file.exists(out))
@@ -66,7 +66,7 @@ test_that("Batch loop of 5 sequential calls produces 5 valid PNG files", {
   result <- make_forest_fixture()
   files <- replicate(5L, tempfile(fileext = ".png"), simplify = TRUE)
   for (f in files) {
-    forest.meta3L(result, file = f)
+    forest3L.meta3L(result, file = f)
   }
   sizes <- vapply(files, function(f) file.info(f)$size, numeric(1L))
   expect_true(all(file.exists(files)))
@@ -87,7 +87,7 @@ test_that("Auto-naming from x$name and meta3l.mwd produces expected file path", 
   expected <- file.path(td, "test_outcome.png")
   if (file.exists(expected)) file.remove(expected)
 
-  ret <- forest.meta3L(result, file = character(0))
+  ret <- forest3L.meta3L(result, file = character(0))
   expect_equal(ret, expected)
   expect_true(file.exists(expected))
   expect_gt(file.info(expected)$size, 1000)
@@ -100,14 +100,14 @@ test_that("Auto-naming from x$name and meta3l.mwd produces expected file path", 
 test_that("showweights=TRUE produces a file", {
   result <- make_forest_fixture()
   out <- tempfile(fileext = ".png")
-  expect_no_error(forest.meta3L(result, showweights = TRUE, file = out))
+  expect_no_error(forest3L.meta3L(result, showweights = TRUE, file = out))
   expect_gt(file.info(out)$size, 1000)
 })
 
 test_that("showweights=FALSE produces a file", {
   result <- make_forest_fixture()
   out <- tempfile(fileext = ".png")
-  expect_no_error(forest.meta3L(result, showweights = FALSE, file = out))
+  expect_no_error(forest3L.meta3L(result, showweights = FALSE, file = out))
   expect_gt(file.info(out)$size, 1000)
 })
 
@@ -118,7 +118,7 @@ test_that("showweights=FALSE produces a file", {
 test_that("sortvar='yi' produces a file without error", {
   result <- make_forest_fixture()
   out <- tempfile(fileext = ".png")
-  expect_no_error(forest.meta3L(result, sortvar = "yi", file = out))
+  expect_no_error(forest3L.meta3L(result, sortvar = "yi", file = out))
   expect_gt(file.info(out)$size, 1000)
 })
 
@@ -129,7 +129,7 @@ test_that("sortvar='yi' produces a file without error", {
 test_that("PLO measure produces file with no refline error", {
   result <- make_forest_fixture()  # PLO measure
   out <- tempfile(fileext = ".png")
-  expect_no_error(forest.meta3L(result, file = out))
+  expect_no_error(forest3L.meta3L(result, file = out))
   expect_gt(file.info(out)$size, 1000)
 })
 
@@ -149,7 +149,7 @@ test_that("SMD measure produces file with refline at 0", {
                        m2i = "m2i", sd2i = "sd2i", n2i = "n2i",
                        measure = "SMD")
   out <- tempfile(fileext = ".png")
-  expect_no_error(forest.meta3L(smd_result, file = out))
+  expect_no_error(forest3L.meta3L(smd_result, file = out))
   expect_gt(file.info(out)$size, 1000)
 })
 
@@ -173,7 +173,7 @@ test_that("SMD measure includes p-value in pooled text (no error)", {
                        m2i = "m2i", sd2i = "sd2i", n2i = "n2i",
                        measure = "SMD")
   out <- tempfile(fileext = ".png")
-  expect_no_error(forest.meta3L(smd_result, file = out))
+  expect_no_error(forest3L.meta3L(smd_result, file = out))
 })
 
 # ---------------------------------------------------------------------------
@@ -203,17 +203,17 @@ test_that("forest.meta3L.R does not use base-R graphics functions", {
 # Return value
 # ---------------------------------------------------------------------------
 
-test_that("forest.meta3L invisibly returns the file path", {
+test_that("forest3L.meta3L invisibly returns the file path", {
   result <- make_forest_fixture()
   out <- tempfile(fileext = ".png")
-  ret <- forest.meta3L(result, file = out)
+  ret <- forest3L.meta3L(result, file = out)
   expect_equal(ret, out)
 })
 
-test_that("forest.meta3L returns NULL for display-only mode", {
+test_that("forest3L.meta3L returns NULL for display-only mode", {
   result <- make_forest_fixture()
   grDevices::pdf(nullfile())
   on.exit(grDevices::dev.off(), add = TRUE)
-  ret <- forest.meta3L(result, file = NULL)
+  ret <- forest3L.meta3L(result, file = NULL)
   expect_null(ret)
 })

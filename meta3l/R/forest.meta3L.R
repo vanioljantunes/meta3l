@@ -54,17 +54,16 @@
 #' )
 #' r <- meta3L(d, slab = "studlab", xi = "xi", ni = "ni",
 #'             measure = "PLO", name = "my_analysis")
-#' forest.meta3L(r)                                   # auto-named PNG
-#' forest.meta3L(r, file = "my_plot.pdf", format = "pdf")
-#' forest.meta3L(r, ilab = c("xi", "ni"),
+#' forest3L.meta3L(r)                                   # auto-named PNG
+#' forest3L.meta3L(r, file = "my_plot.pdf", format = "pdf")
+#' forest3L.meta3L(r, ilab = c("xi", "ni"),
 #'               ilab.lab = c("Events", "Total"))
 #' }
 #'
-#' @importFrom metafor forest
 #' @importFrom grDevices rgb png pdf dev.off
-#' @method forest meta3L
+#' @method forest3L meta3L
 #' @export
-forest.meta3L <- function(x,
+forest3L.meta3L <- function(x,
                           ilab        = NULL,
                           ilab.lab    = NULL,
                           sortvar     = NULL,
@@ -708,3 +707,18 @@ forest.meta3L <- function(x,
   # -------------------------------------------------------------------
   invisible(out_file)
 }
+
+#' Forest plot for meta3l objects
+#'
+#' Generic behind the package's forest plots: one study-level forest for a
+#' \code{meta3l_result} (see \code{\link{forest3L.meta3L}}) and one summary
+#' forest for a \code{meta3l_bind} (see \code{\link{forest3L.meta3l_bind}}).
+#' It has its own name so that loading metafor or meta after meta3l never
+#' hides it.
+#'
+#' @param x A \code{meta3l_result} from \code{\link{meta3L}} or a
+#'   \code{meta3l_bind} from \code{\link{metabind3L}}.
+#' @param ... Arguments passed to the method.
+#' @return See the methods.
+#' @export
+forest3L <- function(x, ...) UseMethod("forest3L")

@@ -1,6 +1,6 @@
 Package: meta3l
 Title: Three-Level Meta-Analysis via Metafor
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Thais", "Author", email = "author@example.com", role = c("aut", "cre"))
 Description: Provides a clean, single-call API for conducting three-level meta-analyses

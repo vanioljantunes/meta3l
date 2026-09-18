@@ -5,9 +5,9 @@
 #'
 #' @param x An S3 object to dispatch on.
 #' @param ... Additional arguments passed to methods.
-#' @return A named list; see \code{\link{loo_cluster.meta3l_result}}.
+#' @return A named list; see \code{\link{loo_cluster3L.meta3l_result}}.
 #' @export
-loo_cluster <- function(x, ...) UseMethod("loo_cluster")
+loo_cluster3L <- function(x, ...) UseMethod("loo_cluster3L")
 
 #' Cluster-level leave-one-out sensitivity analysis for meta3l_result objects
 #'
@@ -40,9 +40,9 @@ loo_cluster <- function(x, ...) UseMethod("loo_cluster")
 #' @importFrom metafor rma.mv robust
 #' @importFrom grDevices png pdf dev.off
 #' @importFrom stats as.formula
-#' @method loo_cluster meta3l_result
+#' @method loo_cluster3L meta3l_result
 #' @export
-loo_cluster.meta3l_result <- function(x,
+loo_cluster3L.meta3l_result <- function(x,
                                 file   = character(0),
                                 format = "png",
                                 width  = NULL,

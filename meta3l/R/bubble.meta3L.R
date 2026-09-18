@@ -27,10 +27,10 @@
 #'   }
 #'
 #' @export
-bubble <- function(x, ...) UseMethod("bubble")
+bubble3L <- function(x, ...) UseMethod("bubble3L")
 
 #' @describeIn bubble Bubble plot method for \code{meta3l_result} objects
-#' @method bubble meta3L
+#' @method bubble3L meta3L
 #' @export
 #'
 #' @param x      A \code{meta3l_result} object from \code{\link{meta3L}}.
@@ -54,7 +54,7 @@ bubble <- function(x, ...) UseMethod("bubble")
 #' @importFrom metafor rma.mv robust
 #' @importFrom grDevices png pdf dev.off rgb
 #' @importFrom stats as.formula predict
-bubble.meta3L <- function(x, mod, file = character(0),
+bubble3L.meta3L <- function(x, mod, file = character(0),
                           format = "png",
                           width  = NULL,
                           height = NULL,
@@ -63,7 +63,7 @@ bubble.meta3L <- function(x, mod, file = character(0),
 
   # --- 0. GLMM guard -----------------------------------------------------------
   if (x$measure == "GLMM") {
-    stop("bubble() does not support measure = 'GLMM'. ",
+    stop("bubble3L() does not support measure = 'GLMM'. ",
          "rma.glmm does not support moderator (mods) arguments. ",
          "Use measure = 'PLO' for meta-regression analyses.",
          call. = FALSE)
@@ -80,8 +80,8 @@ bubble.meta3L <- function(x, mod, file = character(0),
   if (is.factor(mod_col) || is.character(mod_col)) {
     stop(
       "Column '", mod, "' is categorical. ",
-      "For categorical moderators, use moderator.meta3L() ",
-      "or forest_subgroup.meta3L().",
+      "For categorical moderators, use moderator3L.meta3L() ",
+      "or forest_subgroup3L.meta3L().",
       call. = FALSE
     )
   }
