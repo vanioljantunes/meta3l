@@ -141,14 +141,24 @@ bind_qtest <- function(x, subgroup) {
 #' @param measure Character string; the effect size measure, used to pick the
 #'   sample-size, mean and SD columns.
 #' @param method  \code{"max"} (default) or \code{"sum"}.
+#' @param by      Optional character string; column that splits the
+#'   experimental arm of a cluster into disjoint patient groups (e.g.
+#'   \code{"intervention"} with neurological and hepatic groups).  With
+#'   \code{method = "max"} each cluster then contributes its total row when it
+#'   has one, otherwise the largest row of every group, added up.  The control
+#'   arm is shared by the groups and keeps one row per cluster.
+#' @param total   Regular expression (case-insensitive) marking the level of
+#'   \code{by} that holds the whole cluster; default \code{"total"}.
 #'
 #' @return A named numeric vector with elements \code{n_e}, \code{mean_e},
 #'   \code{sd_e}, \code{n_c}, \code{mean_c}, \code{sd_c}; elements that the
 #'   data cannot supply are \code{NA_real_}.
 #'
 #' @keywords internal
-bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum")) {
+bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum"),
+                             by = NULL, total = "total") {
   method <- match.arg(method)
+  if (!is.null(by) && !by %in% names(dat)) by <- NULL
 
   pick <- function(cands) {
     hit <- cands[cands %in% names(dat)]
@@ -179,11 +189,23 @@ bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum")) {
 
     # One representative row per cluster keeps repeated measurements of the
     # same participants from being counted several times
-    if (identical(method, "max")) {
-      idx <- vapply(unique(cl), function(k) {
+    largest <- function(rows) {
+      rows[which.max(replace(a$n[rows], is.na(a$n[rows]), -Inf))]
+    }
+    if (identical(method, "max") && !is.null(by) && side == "e") {
+      # Disjoint patient groups within a cluster are added up; a total row,
+      # when present, already holds all of them
+      grp <- as.character(dat[[by]])
+      grp[is.na(grp)] <- ""
+      idx <- unlist(lapply(unique(cl), function(k) {
         rows <- which(cl == k)
-        rows[which.max(replace(a$n[rows], is.na(a$n[rows]), -Inf))]
-      }, integer(1L))
+        is_tot <- grepl(total, grp[rows], ignore.case = TRUE)
+        if (any(is_tot)) return(largest(rows[is_tot]))
+        vapply(split(rows, grp[rows]), largest, integer(1L))
+      }), use.names = FALSE)
+    } else if (identical(method, "max")) {
+      idx <- vapply(unique(cl), function(k) largest(which(cl == k)),
+                    integer(1L))
     } else {
       idx <- seq_along(a$n)
     }
@@ -253,6 +275,14 @@ bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum")) {
 #'   who contribute several effect sizes: \code{"max"} (default) takes the
 #'   largest sample size per cluster, \code{"sum"} adds the rows up.  See
 #'   \code{bind_arm_summary}.
+#' @param patients.by Optional column that splits a cluster's experimental arm
+#'   into disjoint patient groups (e.g. \code{"intervention"}).  Groups are then
+#'   added up per cluster instead of keeping only the largest one; a row whose
+#'   level matches \code{patients.total} stands for the whole cluster.
+#'   \code{NULL} (default) keeps one row per cluster.
+#' @param patients.total Regular expression (case-insensitive) naming the level
+#'   of \code{patients.by} that holds all patients of a cluster.  Default
+#'   \code{"total"}.
 #' @param name Character string; base name used for auto-generated plot file
 #'   names.  Defaults to \code{"metabind"}.
 #'
@@ -290,7 +320,8 @@ bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum")) {
 #' }
 metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
                      overall.first = FALSE, qtest = TRUE,
-                     patients.method = c("max", "sum"), name = "metabind") {
+                     patients.method = c("max", "sum"), patients.by = NULL,
+                     patients.total = "total", name = "metabind") {
 
   patients.method <- match.arg(patients.method)
 
@@ -387,7 +418,7 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
       overall_row <- make_row(
         bl, "row", "Overall", kind = "overall", fit = fit_ov,
         pat = bind_arm_summary(x$data, x$cluster, x$measure,
-                               patients.method)
+                               patients.method, patients.by, patients.total)
       )
     }
 
@@ -424,7 +455,8 @@ metabind <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
           rows[[length(rows) + 1L]] <- make_row(
             bl, "row", as.character(l), kind = "level", fit = fit,
             pat  = bind_arm_summary(x$data[idx, , drop = FALSE], x$cluster,
-                                    x$measure, patients.method),
+                                    x$measure, patients.method,
+                                    patients.by, patients.total),
             note = if (fit$ok) "" else "not estimable"
           )
         }

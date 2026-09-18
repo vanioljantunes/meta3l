@@ -4,7 +4,14 @@
 \alias{bind_arm_summary}
 \title{Summarise each arm of a set of effect sizes without double counting (internal)}
 \usage{
-bind_arm_summary(dat, cluster, measure, method = c("max", "sum"))
+bind_arm_summary(
+  dat,
+  cluster,
+  measure,
+  method = c("max", "sum"),
+  by = NULL,
+  total = "total"
+)
 }
 \arguments{
 \item{dat}{Data frame; the rows to summarise (already subset).}
@@ -15,6 +22,16 @@ bind_arm_summary(dat, cluster, measure, method = c("max", "sum"))
 sample-size, mean and SD columns.}
 
 \item{method}{\code{"max"} (default) or \code{"sum"}.}
+
+\item{by}{Optional character string; column that splits the
+experimental arm of a cluster into disjoint patient groups (e.g.
+\code{"intervention"} with neurological and hepatic groups).  With
+\code{method = "max"} each cluster then contributes its total row when it
+has one, otherwise the largest row of every group, added up.  The control
+arm is shared by the groups and keeps one row per cluster.}
+
+\item{total}{Regular expression (case-insensitive) marking the level of
+\code{by} that holds the whole cluster; default \code{"total"}.}
 }
 \value{
 A named numeric vector with elements \code{n_e}, \code{mean_e},

@@ -12,6 +12,8 @@ metabind(
   overall.first = FALSE,
   qtest = TRUE,
   patients.method = c("max", "sum"),
+  patients.by = NULL,
+  patients.total = "total",
   name = "metabind"
 )
 }
@@ -44,6 +46,16 @@ is \code{NULL}.}
 who contribute several effect sizes: \code{"max"} (default) takes the
 largest sample size per cluster, \code{"sum"} adds the rows up.  See
 \code{bind_arm_summary}.}
+
+\item{patients.by}{Optional column that splits a cluster's experimental arm
+into disjoint patient groups (e.g. \code{"intervention"}).  Groups are then
+added up per cluster instead of keeping only the largest one; a row whose
+level matches \code{patients.total} stands for the whole cluster.
+\code{NULL} (default) keeps one row per cluster.}
+
+\item{patients.total}{Regular expression (case-insensitive) naming the level
+of \code{patients.by} that holds all patients of a cluster.  Default
+\code{"total"}.}
 
 \item{name}{Character string; base name used for auto-generated plot file
 names.  Defaults to \code{"metabind"}.}
