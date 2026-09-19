@@ -292,6 +292,21 @@ mb
 forest3L(mb, analysis.lab = "Region", xlab = "Mean difference (ppb)")
 ```
 
+Outcomes that need different breakdowns go in the same figure by passing a
+list, one entry per analysis. An entry of `NULL` leaves that outcome with its
+pooled row only.
+
+```r
+mb2 <- metabind3L(
+  Fellowships = r_fellowships,
+  Grants      = r_grants,
+  subgroup    = list("decade", "applicants")
+)
+forest3L(mb2, analysis.lab = "Outcome")
+```
+
+![Two outcomes, one breakdown each](meta3l/man/figures/tutorial-metabind-outcomes.png)
+
 ### Patient counts
 
 The summary forest shows the number of patients per outcome without

@@ -22,11 +22,14 @@ metabind3L(
 named) list of them.  Names, when present, become the block labels;
 otherwise the \code{name} field of each result is used.}
 
-\item{subgroup}{Character vector of column names to break each analysis down
-by (e.g. \code{c("side", "intervention")}).  Several categories per
-analysis are allowed and each gets its own sub-heading.  A column absent
-from a given analysis is skipped with a warning.  \code{NULL} (default)
-produces one row per analysis.}
+\item{subgroup}{Column names to break the analyses down by.  A character
+vector (e.g. \code{c("side", "intervention")}) is applied to every
+analysis; a list with one entry per analysis gives each outcome its own
+breakdown (e.g. \code{list("decade", c("centre", "design"))}), and an
+entry of \code{NULL} leaves that analysis with its pooled row only.
+Several categories per analysis are allowed and each gets its own
+sub-heading.  A column absent from a given analysis is skipped with a
+warning.  \code{NULL} (default) produces one row per analysis.}
 
 \item{labels}{Character vector of block labels, one per analysis.  Overrides
 list names and \code{name} fields.}

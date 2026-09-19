@@ -261,12 +261,21 @@ mb &lt;- <span class="f">metabind3L</span>(<span class="s">`All awards`</span> =
 <span class="f">forest3L</span>(mb, <span class="a">analysis.lab</span> = <span class="s">"Analysis"</span>)
 
 <span class="c"># several outcomes (regions, scales) in one figure</span>
-<span class="f">forest3L</span>(<span class="f">metabind3L</span>(Putamen = r_put, Caudate = r_cau))</pre>
+<span class="f">forest3L</span>(<span class="f">metabind3L</span>(Putamen = r_put, Caudate = r_cau))
+
+<span class="c"># one breakdown per outcome: a list, one entry per analysis</span>
+mb2 &lt;- <span class="f">metabind3L</span>(Fellowships = r_fel, Grants = r_gra,
+                 <span class="a">subgroup</span> = <span class="f">list</span>(<span class="s">"decade"</span>, <span class="s">"applicants"</span>))
+<span class="f">forest3L</span>(mb2, <span class="a">analysis.lab</span> = <span class="s">"Outcome"</span>)</pre>
       <div class="pitfall" style="margin-top:0">
         <div class="pit"><b>Subgroup test</b>
           <code>moderator3L()</code> fits one model with the subgroup as a moderator and shared
           variance components. In the summary forest, the p next to the analysis name is the
           test for subgroup differences.</div>
+        <div class="pit"><b>One breakdown per outcome</b>
+          A character vector in <code>subgroup</code> is applied to every analysis; a
+          <code>list</code> with one entry per analysis gives each outcome its own columns, and
+          <code>NULL</code> in an entry leaves that outcome with its pooled row only.</div>
         <div class="pit"><b>Patients counted once</b>
           The summary forest adds up patients per study without double counting left and right
           rows. If a study reports disjoint groups (neurological and hepatic, say), pass
@@ -278,6 +287,13 @@ mb &lt;- <span class="f">metabind3L</span>(<span class="s">`All awards`</span> =
       <figcaption>Result: fellowships favour men (OR 0.83), grants do not (OR 1.01), and the two
         funding types differ (p &lt; 0.001). Studies, effects, group sizes and I&sup2; per level
         are listed on every row</figcaption>
+    </figure>
+
+    <figure class="plotcard wide">
+      <img src="../man/figures/tutorial-metabind-outcomes.png" alt="Summary forest of two outcomes, each with its own subgroup breakdown">
+      <figcaption>Two outcomes, one breakdown each: fellowships split by decade, grants by the
+        size of the applicant pool. Each block carries its own subgroup heading and its own
+        test for subgroup differences</figcaption>
     </figure>
 
     <div class="args">

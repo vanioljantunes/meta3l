@@ -42,3 +42,55 @@ test_that("missing group labels are not dropped", {
   out <- bind_arm_summary(d, "studlab", "MD", by = "intervention")
   expect_equal(unname(out[["n_e"]]), 33 + 63 + 19)
 })
+
+# metabind3L(): one breakdown per analysis
+
+bind_dat <- function(seed) {
+  set.seed(seed)
+  data.frame(
+    studlab = rep(paste0("S", 1:6), each = 2),
+    side    = rep(c("left", "right"), 6),
+    era     = rep(c("old", "new"), each = 6),
+    n.e     = 20, mean.e = rnorm(12, 10, 1), sd.e = 2,
+    n.c     = 20, mean.c = rnorm(12, 8, 1),  sd.c = 2,
+    stringsAsFactors = FALSE
+  )
+}
+
+test_that("a list of subgroups gives each analysis its own breakdown", {
+  a <- meta3L(bind_dat(1), slab = "studlab", measure = "MD", name = "A")
+  b <- meta3L(bind_dat(2), slab = "studlab", measure = "MD", name = "B")
+  mb <- expect_silent(
+    metabind3L(A = a, B = b, subgroup = list("side", "era"))
+  )
+  subs <- mb$rows[mb$rows$type == "sub", c("block", "label")]
+  expect_equal(subs$block, c("A", "B"))
+  expect_equal(subs$label, c("side", "era"))
+  lv <- mb$rows[mb$rows$kind == "level", c("block", "label")]
+  expect_equal(sort(lv$label[lv$block == "A"]), c("left", "right"))
+  expect_equal(sort(lv$label[lv$block == "B"]), c("new", "old"))
+})
+
+test_that("a NULL entry leaves that analysis with its pooled row only", {
+  a <- meta3L(bind_dat(1), slab = "studlab", measure = "MD", name = "A")
+  b <- meta3L(bind_dat(2), slab = "studlab", measure = "MD", name = "B")
+  mb <- metabind3L(A = a, B = b, subgroup = list("side", NULL))
+  expect_equal(mb$rows$block[mb$rows$type == "sub"], "A")
+  expect_equal(sum(mb$rows$kind == "overall"), 2L)
+})
+
+test_that("a subgroup list of the wrong length is an error", {
+  a <- meta3L(bind_dat(1), slab = "studlab", measure = "MD", name = "A")
+  b <- meta3L(bind_dat(2), slab = "studlab", measure = "MD", name = "B")
+  expect_error(
+    metabind3L(A = a, B = b, subgroup = list("side")),
+    "one entry per analysis"
+  )
+})
+
+test_that("a character vector still applies to every analysis", {
+  a <- meta3L(bind_dat(1), slab = "studlab", measure = "MD", name = "A")
+  b <- meta3L(bind_dat(2), slab = "studlab", measure = "MD", name = "B")
+  mb <- metabind3L(A = a, B = b, subgroup = "side")
+  expect_equal(mb$rows$block[mb$rows$type == "sub"], c("A", "B"))
+})

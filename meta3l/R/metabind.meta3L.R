@@ -256,11 +256,14 @@ bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum"),
 #' @param ... Two or more \code{meta3l_result} objects, or a single (optionally
 #'   named) list of them.  Names, when present, become the block labels;
 #'   otherwise the \code{name} field of each result is used.
-#' @param subgroup Character vector of column names to break each analysis down
-#'   by (e.g. \code{c("side", "intervention")}).  Several categories per
-#'   analysis are allowed and each gets its own sub-heading.  A column absent
-#'   from a given analysis is skipped with a warning.  \code{NULL} (default)
-#'   produces one row per analysis.
+#' @param subgroup Column names to break the analyses down by.  A character
+#'   vector (e.g. \code{c("side", "intervention")}) is applied to every
+#'   analysis; a list with one entry per analysis gives each outcome its own
+#'   breakdown (e.g. \code{list("decade", c("centre", "design"))}), and an
+#'   entry of \code{NULL} leaves that analysis with its pooled row only.
+#'   Several categories per analysis are allowed and each gets its own
+#'   sub-heading.  A column absent from a given analysis is skipped with a
+#'   warning.  \code{NULL} (default) produces one row per analysis.
 #' @param labels Character vector of block labels, one per analysis.  Overrides
 #'   list names and \code{name} fields.
 #' @param overall Logical; include the whole-analysis pooled row in each block
@@ -347,6 +350,22 @@ metabind3L <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
          paste(unique(measures), collapse = ", "), ".", call. = FALSE)
   }
 
+  # --- Subgroup columns, one entry per analysis -----------------------------
+  # A character vector applies to every analysis; a list gives each analysis
+  # its own breakdown, so outcomes with different subgroups share one plot.
+  if (is.list(subgroup)) {
+    if (length(subgroup) != length(objs)) {
+      stop("When `subgroup` is a list it must have one entry per analysis (",
+           length(objs), "); got ", length(subgroup), ".", call. = FALSE)
+    }
+    sg_by_obj <- lapply(subgroup, function(s) {
+      if (is.null(s)) character(0) else as.character(s)
+    })
+  } else {
+    sg_all <- if (is.null(subgroup)) character(0) else as.character(subgroup)
+    sg_by_obj <- rep(list(sg_all), length(objs))
+  }
+
   # --- Block labels ---------------------------------------------------------
   if (!is.null(labels)) {
     if (length(labels) != length(objs)) {
@@ -398,13 +417,14 @@ metabind3L <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
   rows <- list()
 
   for (i in seq_along(objs)) {
-    x  <- objs[[i]]
-    bl <- block_labels[i]
+    x       <- objs[[i]]
+    bl      <- block_labels[i]
+    sg_cols <- sg_by_obj[[i]]
 
     rows[[length(rows) + 1L]] <- make_row(bl, "block", bl)
 
     overall_row <- NULL
-    if (isTRUE(overall) || is.null(subgroup)) {
+    if (isTRUE(overall) || length(sg_cols) == 0L) {
       fit_ov <- list(
         est     = x$estimate,
         lb      = x$ci.lb,
@@ -426,8 +446,8 @@ metabind3L <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
       rows[[length(rows) + 1L]] <- overall_row
     }
 
-    if (!is.null(subgroup)) {
-      for (sg_col in subgroup) {
+    if (length(sg_cols) > 0L) {
+      for (sg_col in sg_cols) {
         if (!sg_col %in% names(x$data)) {
           warning("Subgroup column '", sg_col, "' not found in analysis '",
                   bl, "'; skipped.", call. = FALSE)
