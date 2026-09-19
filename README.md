@@ -43,8 +43,8 @@ figures without writing the model by hand.
   summary forest across outcomes, and a brain map for neuroimaging outcomes.
 - **Sensible defaults, few arguments.** Column names follow the `meta`
   package (`mean.e`, `sd.e`, `n.e`, ...) and are detected automatically
-  when your sheet already uses them. Plots are saved as PNG unless you pass
-  `file = NULL` to draw them on screen.
+  when your sheet already uses them. Plots are drawn on screen and nothing is
+  written to disk unless you ask for a file.
 
 ---
 
@@ -215,9 +215,10 @@ State the value you used in the Methods.
 
 ## 5. Plots, subgroups and sensitivity
 
-Every plot function saves a PNG named after the analysis by default. Pass
-`file = NULL` to draw on screen, `file = "name.pdf", format = "pdf"` for a
-PDF. The output folder is `getOption("meta3l.mwd")`.
+Every plot function draws on screen and writes nothing by default
+(`file = NULL`). Pass `file = "name.png"` to save it, add `format = "pdf"` for
+a PDF, or `file = character(0)` to get a PNG named after the analysis inside
+`getOption("meta3l.mwd")`.
 
 ### Forest plot
 

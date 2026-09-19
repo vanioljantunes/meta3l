@@ -247,8 +247,8 @@ brainmap3L <- function(x, ...) UseMethod("brainmap3L")
 #' @param title Character; plot title.
 #' @param caption Character; caption under the plot.  \code{TRUE} (default)
 #'   states that the midbrain nuclei are schematic, \code{FALSE} omits it.
-#' @param file One of: \code{character(0)} (default, auto-name); \code{NULL}
-#'   (return the plot, draw nothing); or an explicit file path.
+#' @param file One of: \code{NULL} (default, return the plot and write no
+#'   file); an explicit file path; or \code{character(0)} (auto-name).
 #' @param format Character; \code{"png"} (default) or \code{"pdf"}.
 #' @param width,height Integer; output size in pixels.  \code{NULL}
 #'   auto-computes.
@@ -279,7 +279,7 @@ brainmap3L.meta3l_bind <- function(x,
                                  legend.title = NULL,
                                  title        = NULL,
                                  caption      = TRUE,
-                                 file         = character(0),
+                                 file = NULL,
                                  format       = "png",
                                  width        = NULL,
                                  height       = NULL,

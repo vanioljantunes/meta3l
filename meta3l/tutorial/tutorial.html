@@ -155,7 +155,10 @@ remotes::<span class="f">install_github</span>(<span class="s">"vanioljantunes/m
       <div>
         <h3>Two groups, counts <small>RR / OR: women vs men awarded</small></h3>
         <table class="tpl">
-          <thead><tr><th>studlab</th><th>type</th><th>event.e</th><th>n.e</th><th class="e">event.c</th><th class="e">n.c</th></tr></thead>
+          <thead>
+            <tr><th></th><th></th><th colspan="2">Women</th><th class="e" colspan="2">Men</th></tr>
+            <tr><th>studlab</th><th>type</th><th>event.e</th><th>n.e</th><th class="e">event.c</th><th class="e">n.c</th></tr>
+          </thead>
           <tbody>
             <tr><td>Ackers (2000)</td><td>Fellowship</td><td class="n">139</td><td class="n">711</td><td class="n">274</td><td class="n">1029</td></tr>
             <tr><td>Ackers (2000)</td><td>Fellowship</td><td class="n">45</td><td class="n">258</td><td class="n">166</td><td class="n">908</td></tr>
@@ -297,8 +300,9 @@ mb &lt;- <span class="f">metabind3L</span>(<span class="s">`All awards`</span> =
       </div>
       <div class="card">
         <div class="hd"><b>Saving plots</b><code>file, format</code></div>
-        <div class="bd">Default: a PNG named after <code>name</code> in
-          <code>getOption("meta3l.mwd")</code>. <code>file = NULL</code> draws on screen;
+        <div class="bd">Default <code>file = NULL</code>: the plot is drawn on screen and
+          nothing is written. Give a path to save, or <code>file = character(0)</code> for a
+          PNG named after <code>name</code> in <code>getOption("meta3l.mwd")</code>.
           <code>format = "pdf"</code> for vector output.</div>
       </div>
     </div>

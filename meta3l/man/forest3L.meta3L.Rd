@@ -18,7 +18,7 @@
   shade = "zebra",
   colshade = rgb(0.92, 0.92, 0.92),
   squaresize = 1,
-  file = character(0),
+  file = NULL,
   format = "png",
   width = NULL,
   height = NULL,
@@ -62,9 +62,9 @@ Defaults to \code{rgb(0.92, 0.92, 0.92)}.}
 \item{squaresize}{Numeric scaling factor applied to the weight-proportional
 study squares.  Defaults to \code{1}.}
 
-\item{file}{One of: \code{character(0)} (default, auto-name from
-\code{x$name} and \code{meta3l.mwd} option); \code{NULL} (display only);
-or a character string (explicit file path).}
+\item{file}{One of: \code{NULL} (default, draw on screen and write no
+file); a character string (explicit file path); or \code{character(0)}
+(auto-name from \code{x$name} and the \code{meta3l.mwd} option).}
 
 \item{format}{Character string; output format — \code{"png"} (default) or
 \code{"pdf"}.}

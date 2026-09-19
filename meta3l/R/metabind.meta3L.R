@@ -316,7 +316,7 @@ bind_arm_summary <- function(dat, cluster, measure, method = c("max", "sum"),
 #'   subgroup = c("side", "intervention")
 #' )
 #' print(mb)
-#' forest3L(mb, analysis.lab = "Region", title = "QSM", file = character(0))
+#' forest3L(mb, analysis.lab = "Region", title = "QSM", file = NULL)
 #' }
 metabind3L <- function(..., subgroup = NULL, labels = NULL, overall = TRUE,
                      overall.first = FALSE, qtest = TRUE,
@@ -581,8 +581,8 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #' @param squaresize Numeric scaling factor for the subgroup-level squares.
 #' @param digits Integer; digits for estimates and confidence limits.
 #' @param digits.data Integer; digits for the mean and SD columns.
-#' @param file One of: \code{character(0)} (default, auto-name); \code{NULL}
-#'   (display only); or an explicit file path.
+#' @param file One of: \code{NULL} (default, draw on screen and write no
+#'   file); an explicit file path; or \code{character(0)} (auto-name).
 #' @param format Character; \code{"png"} (default) or \code{"pdf"}.
 #' @param width Integer; output width in pixels.  \code{NULL} auto-computes.
 #' @param height Integer; output height in pixels.  \code{NULL} auto-computes.
@@ -612,7 +612,7 @@ forest3L.meta3l_bind <- function(x,
                                squaresize   = 1,
                                digits       = 2L,
                                digits.data  = 1L,
-                               file         = character(0),
+                               file = NULL,
                                format       = "png",
                                width        = NULL,
                                height       = NULL,

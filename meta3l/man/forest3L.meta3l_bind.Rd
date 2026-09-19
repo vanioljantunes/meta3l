@@ -23,7 +23,7 @@
   squaresize = 1,
   digits = 2L,
   digits.data = 1L,
-  file = character(0),
+  file = NULL,
   format = "png",
   width = NULL,
   height = NULL,
@@ -83,8 +83,8 @@ within-cluster columns next to the total (default \code{TRUE}).}
 
 \item{digits.data}{Integer; digits for the mean and SD columns.}
 
-\item{file}{One of: \code{character(0)} (default, auto-name); \code{NULL}
-(display only); or an explicit file path.}
+\item{file}{One of: \code{NULL} (default, draw on screen and write no
+file); an explicit file path; or \code{character(0)} (auto-name).}
 
 \item{format}{Character; \code{"png"} (default) or \code{"pdf"}.}
 

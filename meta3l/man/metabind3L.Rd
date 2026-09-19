@@ -103,7 +103,7 @@ mb <- metabind3L(
   subgroup = c("side", "intervention")
 )
 print(mb)
-forest3L(mb, analysis.lab = "Region", title = "QSM", file = character(0))
+forest3L(mb, analysis.lab = "Region", title = "QSM", file = NULL)
 }
 }
 \seealso{

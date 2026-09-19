@@ -16,7 +16,7 @@ funnel3L(x, ...)
   title = NULL,
   test = TRUE,
   name = "funnel",
-  file = character(0),
+  file = NULL,
   format = "png",
   width = NULL,
   height = NULL,

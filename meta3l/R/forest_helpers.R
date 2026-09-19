@@ -420,3 +420,36 @@ extract_abbrev <- function(txt) {
 ilab_col_cm <- function(max_chars) {
   max(1.2, max_chars * 0.13 + 0.3)
 }
+
+# ---------------------------------------------------------------------------
+# Text fitting helper
+# ---------------------------------------------------------------------------
+
+#' Shrink a cex until the text fits the current viewport (internal)
+#'
+#' Called inside an open viewport. Returns \code{cex} unchanged when the string
+#' already fits the viewport width, otherwise the largest cex that does, never
+#' below \code{min_cex}. Keeps annotations such as the k / I2 line from running
+#' into neighbouring columns.
+#'
+#' @param label Character; the string to be drawn.
+#' @param cex Numeric; the desired character expansion.
+#' @param fontface Character or numeric; font face used for the measurement.
+#' @param width Numeric; the fraction of the viewport width the text may use.
+#' @param min_cex Numeric; lower bound for the returned cex.
+#' @return Numeric cex.
+#' @keywords internal
+fit_cex <- function(label, cex, fontface = "plain", width = 1, min_cex = 0.4) {
+  w <- try(
+    grid::convertWidth(
+      grid::grobWidth(
+        grid::textGrob(label, gp = grid::gpar(cex = cex, fontface = fontface))
+      ),
+      "npc", valueOnly = TRUE
+    ),
+    silent = TRUE
+  )
+  if (inherits(w, "try-error") || !is.finite(w) || w <= 0) return(cex)
+  if (w <= width) return(cex)
+  max(min_cex, cex * width / w)
+}

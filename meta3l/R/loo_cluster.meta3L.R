@@ -16,10 +16,10 @@ loo_cluster3L <- function(x, ...) UseMethod("loo_cluster3L")
 #' heterogeneity statistics change.  Also produces a grid-based influence plot.
 #'
 #' @param x     A \code{meta3l_result} object returned by \code{\link{meta3L}}.
-#' @param file  One of: \code{character(0)} (default, auto-name from
-#'   \code{x$name} and \code{meta3l.mwd} option); \code{NULL} (display only,
-#'   returns \code{NULL} for \code{plot_file}); or a character string (explicit
-#'   file path).
+#' @param file  One of: \code{NULL} (default, draw on screen, write no file
+#'   and return \code{NULL} for \code{plot_file}); a character string
+#'   (explicit file path); or \code{character(0)} (auto-name from
+#'   \code{x$name} and the \code{meta3l.mwd} option).
 #' @param format Character string; output format — \code{"png"} (default) or
 #'   \code{"pdf"}.
 #' @param width  Integer or NULL; output width in pixels.  \code{NULL}
@@ -43,7 +43,7 @@ loo_cluster3L <- function(x, ...) UseMethod("loo_cluster3L")
 #' @method loo_cluster3L meta3l_result
 #' @export
 loo_cluster3L.meta3l_result <- function(x,
-                                file   = character(0),
+                                file = NULL,
                                 format = "png",
                                 width  = NULL,
                                 height = NULL,

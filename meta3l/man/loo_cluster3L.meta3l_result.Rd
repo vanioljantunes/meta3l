@@ -6,7 +6,7 @@
 \usage{
 \method{loo_cluster3L}{meta3l_result}(
   x,
-  file = character(0),
+  file = NULL,
   format = "png",
   width = NULL,
   height = NULL,
@@ -18,10 +18,10 @@
 \arguments{
 \item{x}{A \code{meta3l_result} object returned by \code{\link{meta3L}}.}
 
-\item{file}{One of: \code{character(0)} (default, auto-name from
-\code{x$name} and \code{meta3l.mwd} option); \code{NULL} (display only,
-returns \code{NULL} for \code{plot_file}); or a character string (explicit
-file path).}
+\item{file}{One of: \code{NULL} (default, draw on screen, write no file
+and return \code{NULL} for \code{plot_file}); a character string
+(explicit file path); or \code{character(0)} (auto-name from
+\code{x$name} and the \code{meta3l.mwd} option).}
 
 \item{format}{Character string; output format — \code{"png"} (default) or
 \code{"pdf"}.}

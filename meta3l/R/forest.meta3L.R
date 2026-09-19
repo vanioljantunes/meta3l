@@ -32,9 +32,9 @@
 #'   Defaults to \code{rgb(0.92, 0.92, 0.92)}.
 #' @param squaresize Numeric scaling factor applied to the weight-proportional
 #'   study squares.  Defaults to \code{1}.
-#' @param file One of: \code{character(0)} (default, auto-name from
-#'   \code{x$name} and \code{meta3l.mwd} option); \code{NULL} (display only);
-#'   or a character string (explicit file path).
+#' @param file One of: \code{NULL} (default, draw on screen and write no
+#'   file); a character string (explicit file path); or \code{character(0)}
+#'   (auto-name from \code{x$name} and the \code{meta3l.mwd} option).
 #' @param format Character string; output format — \code{"png"} (default) or
 #'   \code{"pdf"}.
 #' @param width Integer; output width in pixels (PNG) or 1/300 inches (PDF).
@@ -76,7 +76,7 @@ forest3L.meta3L <- function(x,
                           shade       = "zebra",
                           colshade    = rgb(0.92, 0.92, 0.92),
                           squaresize  = 1,
-                          file        = character(0),
+                          file = NULL,
                           format      = "png",
                           width       = NULL,
                           height      = NULL,
@@ -185,7 +185,9 @@ forest3L.meta3L <- function(x,
   study_rows  <- seq(2L + group_offset, n_studies + 1L + group_offset)
   has_favours <- x$measure %in% c("SMD", "MD", "RR", "OR")
   pooled_row  <- n_studies + 2L + group_offset
-  axis_row    <- n_studies + 3L + group_offset
+  # the k / I2 line gets its own row so that it cannot run into the axis
+  mlab_row    <- pooled_row + 1L
+  axis_row    <- n_studies + 4L + group_offset
   favours_row <- if (has_favours) axis_row + 1L else NA_integer_
   title_row   <- axis_row + if (has_favours) 2L else 1L
   total_rows  <- title_row
@@ -256,7 +258,8 @@ forest3L.meta3L <- function(x,
   row_height_lines <- if (has_wrapped) 1.8 else 1.2
   rh <- rep(row_height_lines, total_rows)
   rh[header_row]  <- if (has_wrapped_hdr) 2.6 else 1.5
-  rh[pooled_row]  <- 1.8
+  rh[pooled_row]  <- 1.5
+  rh[mlab_row]    <- 0.9
   rh[axis_row]    <- 2.0
   rh[title_row]   <- 1.5
   row_heights <- grid::unit(rh, "lines")
@@ -540,14 +543,20 @@ forest3L.meta3L <- function(x,
   push_span(row_p, studlab_col, gap1_col)
   grid::grid.text("Overall",
                   x    = grid::unit(0, "npc"),
-                  y    = grid::unit(0.65, "npc"),
+                  y    = grid::unit(0.5, "npc"),
                   just = "left",
                   gp   = pool_gp)
+  grid::popViewport()
+
+  # k / I2 on its own row, and shrunk until it fits the columns left of the CI
+  # panel, so it can never run into the axis or its labels
+  push_span(mlab_row, studlab_col, gap1_col)
+  mlab_cex  <- fit_cex(mlab_overall, cex = 0.65, fontface = "italic")
   grid::grid.text(mlab_overall,
                   x    = grid::unit(0, "npc"),
-                  y    = grid::unit(0.25, "npc"),
+                  y    = grid::unit(0.5, "npc"),
                   just = "left",
-                  gp   = grid::gpar(cex = 0.65, fontface = "italic"))
+                  gp   = grid::gpar(cex = mlab_cex, fontface = "italic"))
   grid::popViewport()
 
   # Aggregated ilab values (n/events/mean/SD per cluster)

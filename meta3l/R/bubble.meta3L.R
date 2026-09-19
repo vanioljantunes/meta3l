@@ -54,7 +54,7 @@ bubble3L <- function(x, ...) UseMethod("bubble3L")
 #' @importFrom metafor rma.mv robust
 #' @importFrom grDevices png pdf dev.off rgb
 #' @importFrom stats as.formula predict
-bubble3L.meta3L <- function(x, mod, file = character(0),
+bubble3L.meta3L <- function(x, mod, file = NULL,
                           format = "png",
                           width  = NULL,
                           height = NULL,

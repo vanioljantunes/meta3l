@@ -50,8 +50,9 @@ forest_subgroup3L <- function(x, ...) UseMethod("forest_subgroup3L")
 #'   Defaults to \code{rgb(0.92, 0.92, 0.92)}.
 #' @param squaresize Numeric scaling factor for study squares.
 #'   Defaults to \code{1}.
-#' @param file One of: \code{character(0)} (default, auto-name);
-#'   \code{NULL} (display only); or an explicit character file path.
+#' @param file One of: \code{NULL} (default, draw on screen and write no
+#'   file); an explicit character file path; or \code{character(0)}
+#'   (auto-name).
 #' @param format Character; \code{"png"} (default) or \code{"pdf"}.
 #' @param width Integer; output width in pixels.  \code{NULL} auto-computes.
 #' @param height Integer; output height in pixels.  \code{NULL} auto-computes.
@@ -79,7 +80,7 @@ forest_subgroup3L.meta3L <- function(x,
                                    shade       = "zebra",
                                    colshade    = rgb(0.92, 0.92, 0.92),
                                    squaresize  = 1,
-                                   file        = character(0),
+                                   file = NULL,
                                    format      = "png",
                                    width       = NULL,
                                    height      = NULL,

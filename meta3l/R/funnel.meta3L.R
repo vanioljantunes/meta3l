@@ -308,8 +308,8 @@ funnel_draw <- function(objs, title, xlab, ylab, xlim, test,
 #' @param title Character string; figure title drawn above the panels.
 #' @param test Logical; run the asymmetry test and summarise it in a table
 #'   under the panels (default \code{TRUE}).
-#' @param file One of: \code{character(0)} (default, auto-name); \code{NULL}
-#'   (display only); or an explicit file path.
+#' @param file One of: \code{NULL} (default, draw on screen and write no
+#'   file); an explicit file path; or \code{character(0)} (auto-name).
 #' @param format Character; \code{"png"} (default) or \code{"pdf"}.
 #' @param width,height Integer; output size in pixels.  \code{NULL}
 #'   auto-computes.
@@ -335,7 +335,7 @@ funnel3L.meta3l_result <- function(x,
                                  ylab        = "Standard error",
                                  title       = NULL,
                                  test        = TRUE,
-                                 file        = character(0),
+                                 file = NULL,
                                  format      = "png",
                                  width       = NULL,
                                  height      = NULL,
@@ -370,7 +370,7 @@ funnel3L.list <- function(x,
                         title       = NULL,
                         test        = TRUE,
                         name        = "funnel",
-                        file        = character(0),
+                        file = NULL,
                         format      = "png",
                         width       = NULL,
                         height      = NULL,
