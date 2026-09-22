@@ -20,6 +20,8 @@
   showi2.parts = TRUE,
   shade = "zebra",
   colshade = rgb(0.92, 0.92, 0.92),
+  overall.style = c("diamond", "point"),
+  overall.bold = TRUE,
   squaresize = 1,
   digits = 2L,
   digits.data = 1L,
@@ -76,6 +78,14 @@ within-cluster columns next to the total (default \code{TRUE}).}
 (alternate analyses) or \code{"none"}.}
 
 \item{colshade}{Colour used for shading.}
+
+\item{overall.style}{One of \code{"diamond"} (default; the diamond spans
+the confidence interval of each pooled estimate) or \code{"point"} (a
+diamond of fixed size sits on a confidence interval line, like the study
+marks of \code{\link{forest3L}}).}
+
+\item{overall.bold}{Logical; draw the label, estimate and p-value of the
+pooled rows in bold (default \code{TRUE}).}
 
 \item{squaresize}{Numeric scaling factor for the subgroup-level squares.}
 

@@ -598,6 +598,12 @@ print.meta3l_bind <- function(x, digits = 2L, ...) {
 #'   \code{"category"} (one band per subgroup category), \code{"block"}
 #'   (alternate analyses) or \code{"none"}.
 #' @param colshade Colour used for shading.
+#' @param overall.style One of \code{"diamond"} (default; the diamond spans
+#'   the confidence interval of each pooled estimate) or \code{"point"} (a
+#'   diamond of fixed size sits on a confidence interval line, like the study
+#'   marks of \code{\link{forest3L}}).
+#' @param overall.bold Logical; draw the label, estimate and p-value of the
+#'   pooled rows in bold (default \code{TRUE}).
 #' @param squaresize Numeric scaling factor for the subgroup-level squares.
 #' @param digits Integer; digits for estimates and confidence limits.
 #' @param digits.data Integer; digits for the mean and SD columns.
@@ -629,6 +635,8 @@ forest3L.meta3l_bind <- function(x,
                                showi2.parts = TRUE,
                                shade        = "zebra",
                                colshade     = rgb(0.92, 0.92, 0.92),
+                               overall.style = c("diamond", "point"),
+                               overall.bold = TRUE,
                                squaresize   = 1,
                                digits       = 2L,
                                digits.data  = 1L,
@@ -639,6 +647,7 @@ forest3L.meta3l_bind <- function(x,
                                ...) {
 
   stopifnot(inherits(x, "meta3l_bind"))
+  overall.style <- match.arg(overall.style)
 
   r         <- x$rows
   measure   <- x$measure
@@ -1066,7 +1075,8 @@ forest3L.meta3l_bind <- function(x,
 
     row_seq <- row_seq + 1L
     is_overall <- identical(r$kind[i], "overall")
-    lbl_gp <- if (is_overall) bold_gp else norm_gp
+    ov_gp  <- if (is_overall && overall.bold) bold_gp else norm_gp
+    lbl_gp <- ov_gp
 
     txt(row_i, label_col, all_labels[i], lbl_gp, just = "left")
     if (showk) {
@@ -1099,7 +1109,7 @@ forest3L.meta3l_bind <- function(x,
 
     if (!is.na(r$est[i]) && !is.na(r$lb[i]) && !is.na(r$ub[i])) {
       push_cell(row_i, ci_col, xscale = xlim_final, clip = "on")
-      if (is_overall) {
+      if (is_overall && identical(overall.style, "diamond")) {
         draw_diamond(
           max(r$lb[i], xlim_final[1]),
           min(max(r$est[i], xlim_final[1]), xlim_final[2]),
@@ -1140,18 +1150,21 @@ forest3L.meta3l_bind <- function(x,
           draw_ci_line(lb_draw, ub_draw)
         }
         if (r$est[i] >= xlim_final[1] && r$est[i] <= xlim_final[2]) {
-          draw_square(r$est[i], 0.55 * squaresize)
+          if (is_overall) {
+            draw_diamond_fixed(r$est[i], 0.45 * squaresize)
+          } else {
+            draw_square(r$est[i], 0.55 * squaresize)
+          }
         }
       }
       grid::popViewport()
 
       txt(row_i, results_col,
-          sprintf(fmt_est, r$est[i], r$lb[i], r$ub[i]),
-          if (is_overall) bold_gp else norm_gp)
+          sprintf(fmt_est, r$est[i], r$lb[i], r$ub[i]), ov_gp)
 
       if (show_pval && !is.na(r$pval[i])) {
         pv <- if (r$pval[i] < 0.001) "<0.001" else sprintf("%.4f", r$pval[i])
-        txt(row_i, pval_col, pv, if (is_overall) bold_gp else norm_gp)
+        txt(row_i, pval_col, pv, ov_gp)
       }
     } else {
       txt(row_i, results_col, "not estimable", small_gp)

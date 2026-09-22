@@ -53,6 +53,28 @@ draw_diamond <- function(lb, est, ub, hh = 0.35, y_center = 0.5,
   )
 }
 
+#' Draw a fixed-size diamond marker (internal)
+#'
+#' Draws a diamond of constant size centred on \code{x_pos}, for pooled
+#' estimates whose confidence interval is drawn as a line instead of being
+#' spanned by the diamond.  Must be called inside a viewport with an xscale
+#' set.
+#'
+#' @param x_pos Numeric; x position in native (data) coordinates.
+#' @param size  Numeric; half-diagonal in "lines" units.
+#' @param col   Character; fill colour.  Defaults to \code{"darkgray"}.
+#' @param col_border Character; border colour.  Defaults to \code{"black"}.
+#'
+#' @keywords internal
+draw_diamond_fixed <- function(x_pos, size, col = "darkgray",
+                               col_border = "black") {
+  grid::grid.polygon(
+    x  = grid::unit(x_pos, "native") + grid::unit(c(-size, 0, size, 0), "lines"),
+    y  = grid::unit(0.5, "npc") + grid::unit(c(0, size, 0, -size), "lines"),
+    gp = grid::gpar(fill = col, col = col_border)
+  )
+}
+
 #' Draw a confidence interval line (internal)
 #'
 #' Draws a horizontal segment from \code{lb} to \code{ub} at y = 0.5 npc.

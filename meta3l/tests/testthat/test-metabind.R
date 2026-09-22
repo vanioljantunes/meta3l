@@ -94,3 +94,19 @@ test_that("a character vector still applies to every analysis", {
   mb <- metabind3L(A = a, B = b, subgroup = "side")
   expect_equal(mb$rows$block[mb$rows$type == "sub"], c("A", "B"))
 })
+
+# forest3L.meta3l_bind: pooled rows as fixed diamonds on a CI line
+
+test_that("overall.style and overall.bold render and reject bad input", {
+  a <- meta3L(bind_dat(1), slab = "studlab", measure = "MD", name = "A")
+  b <- meta3L(bind_dat(2), slab = "studlab", measure = "MD", name = "B")
+  mb <- metabind3L(A = a, B = b)
+  f1 <- tempfile(fileext = ".png")
+  f2 <- tempfile(fileext = ".png")
+  forest3L(mb, file = f1)
+  forest3L(mb, file = f2, overall.style = "point", overall.bold = FALSE)
+  expect_true(file.exists(f1))
+  expect_true(file.exists(f2))
+  expect_false(identical(readBin(f1, "raw", 1e6), readBin(f2, "raw", 1e6)))
+  expect_error(forest3L(mb, file = f1, overall.style = "circle"))
+})
